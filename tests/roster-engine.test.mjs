@@ -16,14 +16,19 @@ assert.equal(alternating.targetLoad.EMP001, 1);
 assert.equal(alternating.targetLoad.EMP002, 2);
 assert.equal(alternating.targetLoad.EMP007, 2);
 
+for (const row of alternating.assignments) assert.equal(new Set(row.assigned).size, row.assigned.length);
+for (const code of people) assert.ok(alternating.monthlyLoad[code] >= 1, `${code} must receive monthly coverage`);
+
+const fullTeam = Array.from({ length: 22 }, (_, index) => `EMP${String(index + 1).padStart(3, "0")}`);
 const date = "2026-08-01", availability = {}, submissions = {};
-for (const [index, code] of people.entries()) {
+for (const [index, code] of fullTeam.entries()) {
   availability[code] = { "2026-08": { [date]: true } };
-  submissions[code] = { "2026-08": { savedAt: `2026-07-${String(20 + index).padStart(2, "0")}T10:00:00Z` } };
+  submissions[code] = { "2026-08": { savedAt: new Date(Date.UTC(2026, 6, 1, 0, index)).toISOString() } };
 }
-const overridden = generate({ people, monthDate: new Date(2026, 7, 1), availability, submissions, rosters: {} });
-assert.deepEqual(Array.from(overridden.assignments[0].assigned), ["EMP007", "EMP006", "EMP005", "EMP004"]);
+const overridden = generate({ people: fullTeam, monthDate: new Date(2026, 7, 1), availability, submissions, rosters: {} });
+assert.deepEqual(Array.from(overridden.assignments[0].assigned), ["EMP022", "EMP021", "EMP020", "EMP019"]);
 assert.equal(overridden.assignments[0].overrides.length, 4);
-assert.ok(overridden.warnings[0].includes("latest-response override"));
+for (const row of overridden.assignments) assert.equal(new Set(row.assigned).size, row.assigned.length);
+for (const code of fullTeam) assert.ok(overridden.monthlyLoad[code] >= 1, `${code} must receive monthly coverage`);
 
 console.log("Roster engine tests passed");

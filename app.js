@@ -66,19 +66,14 @@ function loadPersonDraft() {
   updateSaveState();
 }
 function renderPeople() {
-  const selected = $("personSelect").value || PEOPLE[0];
-  setOptions($("personSelect"), teamOptions(PEOPLE), "");
-  $("personSelect").value = selected;
-  const month = monthKey(shownMonth);
-  let responses = 0;
-  $("teamList").innerHTML = PEOPLE.map((name) => {
-    const submission = state.submissions[name]?.[month];
-    const count = Object.keys(state.availability[name]?.[month] || {}).length;
-    if (submission) responses += 1;
-    const badge = submission ? `<span class="badge done">Saved · ${count} NA</span>` : `<span class="badge">Default available</span>`;
-    return `<div class="person-row"><span class="avatar">${initials(displayName(name))}</span><div><strong title="${safe(displayName(name))}">${safe(displayName(name))}</strong><small>${submission ? `Submitted ${new Date(submission.savedAt).toLocaleString("en-IN")}` : "No response · available all month"}</small></div>${badge}</div>`;
+  renderNaOverview();
+}
+function naNamesForDate(key) { return PEOPLE.filter((code) => state.availability[code]?.[key.slice(0, 7)]?.[key]).map(displayName); }
+function renderNaOverview() {
+  $("naOverview").innerHTML = weekendDates(shownMonth).map((date) => {
+    const key = dateKey(date), names = naNamesForDate(key);
+    return `<div class="na-date-card ${names.length ? "has-na" : ""}"><strong>${date.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} · ${names.length} NA</strong><p>${names.length ? names.map(safe).join(", ") : "No NA submitted"}</p></div>`;
   }).join("");
-  $("responseCount").textContent = `${responses} / ${PEOPLE.length}`;
 }
 function renderCalendar() {
   const year = shownMonth.getFullYear(), month = shownMonth.getMonth();
@@ -86,8 +81,8 @@ function renderCalendar() {
   const offset = (new Date(year, month, 1).getDay() + 6) % 7;
   let html = `<button class="day blank" tabindex="-1"></button>`.repeat(offset);
   for (let day = 1; day <= new Date(year, month + 1, 0).getDate(); day += 1) {
-    const date = new Date(year, month, day), weekend = [0, 6].includes(date.getDay()), key = dateKey(date), na = pendingNA.has(key);
-    html += `<button class="day ${weekend ? "weekend" : ""} ${na ? "na" : ""}" ${weekend ? `data-date="${key}" aria-pressed="${na}" ${isSubmissionOpen() ? "" : "disabled"}` : "disabled"}><span class="day-number">${day}</span>${weekend ? `<span class="day-label">${na ? "NA" : "Available"}</span>` : ""}</button>`;
+    const date = new Date(year, month, day), weekend = [0, 6].includes(date.getDay()), key = dateKey(date), na = pendingNA.has(key), teamNA = weekend ? naNamesForDate(key) : [];
+    html += `<button class="day ${weekend ? "weekend" : ""} ${na ? "na" : ""}" ${weekend ? `data-date="${key}" aria-pressed="${na}" title="${safe(teamNA.length ? `NA: ${teamNA.join(", ")}` : "No NA submitted")}" ${isSubmissionOpen() ? "" : "disabled"}` : "disabled"}><span class="day-number">${day}</span>${weekend ? `<span class="day-label">${na ? "Your NA" : "Available"} · ${teamNA.length} NA</span>` : ""}</button>`;
   }
   $("calendar").innerHTML = html;
   document.querySelectorAll("[data-date]").forEach((button) => button.addEventListener("click", () => {
@@ -142,6 +137,15 @@ function renderRoster() {
   $("rosterStatus").className = `status ${ready ? "ready" : "warning"}`;
   $("warnings").hidden = !roster.warnings.length; $("warnings").textContent = roster.warnings.join(" · ");
 }
+function rosterIsValid(roster) {
+  if (!roster?.assignments?.length) return false;
+  const covered = new Set();
+  for (const row of roster.assignments) {
+    if (new Set(row.assigned).size !== row.assigned.length) return false;
+    row.assigned.forEach((person) => covered.add(person));
+  }
+  return PEOPLE.every((person) => covered.has(person));
+}
 
 function currentSwapRoster() {
   const currentMonth = monthKey(new Date(realNow.getFullYear(), realNow.getMonth(), 1));
@@ -149,25 +153,59 @@ function currentSwapRoster() {
   return demoMode ? state.rosters[monthKey(shownMonth)] : null;
 }
 function employeeDates(roster, person) { return (roster?.assignments || []).filter((row) => row.assigned.includes(person)).map((row) => ({ value: row.date, label: parseDate(row.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) })); }
+function isNAOn(person, date) { return Boolean(state.availability[person]?.[date.slice(0, 7)]?.[date]); }
+function eligibleSwapColleagues(roster, requester, fromDate) {
+  const sourceRow = roster?.assignments.find((row) => row.date === fromDate);
+  if (!sourceRow) return [];
+  return PEOPLE.filter((person) => person !== requester && !sourceRow.assigned.includes(person) && !isNAOn(person, fromDate));
+}
+function eligibleSwapDates(roster, requester, colleague, fromDate) {
+  return (roster?.assignments || []).filter((row) => row.date !== fromDate && row.assigned.includes(colleague) && !row.assigned.includes(requester) && !isNAOn(requester, row.date)).map((row) => ({ value: row.date, label: parseDate(row.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) }));
+}
 function updateSwapButton() {
   const eligible = Boolean(currentSwapRoster()) && (demoMode || realNow.getDate() >= 1);
   $("submitSwap").disabled = !eligible || !$("swapFromDate").value || !$("swapToDate").value;
 }
 function renderSwap() {
-  const requester = $("swapRequester").value || PEOPLE[0], colleague = $("swapColleague").value || PEOPLE[1], roster = currentSwapRoster();
+  const requester = $("swapRequester").value || PEOPLE[0], previousFrom = $("swapFromDate").value, previousColleague = $("swapColleague").value, previousTo = $("swapToDate").value, roster = currentSwapRoster();
   setOptions($("swapRequester"), teamOptions(PEOPLE.filter((name) => !INACTIVE.has(name))), ""); $("swapRequester").value = requester;
-  setOptions($("swapColleague"), teamOptions(PEOPLE.filter((name) => !INACTIVE.has(name) && name !== requester)), "");
-  $("swapColleague").value = colleague === requester ? PEOPLE.find((name) => !INACTIVE.has(name) && name !== requester) : colleague;
   setOptions($("swapFromDate"), employeeDates(roster, requester), "No assigned dates");
-  setOptions($("swapToDate"), employeeDates(roster, $("swapColleague").value), "No assigned dates");
+  if ([...$("swapFromDate").options].some((option) => option.value === previousFrom)) $("swapFromDate").value = previousFrom;
+  const fromDate = $("swapFromDate").value;
+  const colleagues = eligibleSwapColleagues(roster, requester, fromDate);
+  setOptions($("swapColleague"), teamOptions(colleagues), colleagues.length ? "Select an available colleague" : "No eligible colleagues");
+  if (colleagues.includes(previousColleague)) $("swapColleague").value = previousColleague;
+  const colleague = $("swapColleague").value;
+  const dates = eligibleSwapDates(roster, requester, colleague, fromDate);
+  setOptions($("swapToDate"), dates, dates.length ? "Select their shift" : "No eligible shift dates");
+  if (dates.some((option) => option.value === previousTo)) $("swapToDate").value = previousTo;
   const eligible = Boolean(roster) && (demoMode || realNow.getDate() >= 1);
   updateSwapButton();
   $("swapEligibility").textContent = eligible ? (demoMode ? "Demo eligible" : "Requests open") : "No current roster";
   $("swapRequestList").innerHTML = requestCards(state.swapRequests);
+  document.querySelectorAll(".revoke-swap").forEach((button) => button.addEventListener("click", () => revokeSwap(button.dataset.id)));
 }
 function requestCards(requests, admin = false) {
   if (!requests.length) return `<div class="empty-state">No swap requests.</div>`;
-  return requests.slice().reverse().map((request) => `<div class="request-card"><div><strong>${safe(displayName(request.requester))} ↔ ${safe(displayName(request.colleague))}</strong><p>${safe(request.fromDate)} exchanged with ${safe(request.toDate)}</p><small>${safe(request.reason || "No reason supplied")} · ${new Date(request.createdAt).toLocaleString("en-IN")} · ${safe(request.status)}</small></div>${admin && request.status === "pending" ? `<div class="request-actions"><button class="primary approve-swap" data-id="${request.id}">Approve</button><button class="danger reject-swap" data-id="${request.id}">Reject</button></div>` : ""}</div>`).join("");
+  return requests.slice().reverse().map((request) => `<div class="request-card"><div><strong>${safe(displayName(request.requester))} ↔ ${safe(displayName(request.colleague))}</strong><p>${safe(request.fromDate)} exchanged with ${safe(request.toDate)}</p><small>${safe(request.reason || "No reason supplied")} · ${new Date(request.createdAt).toLocaleString("en-IN")} · ${safe(request.status)}</small></div>${admin && request.status === "pending" ? `<div class="request-actions"><button class="primary approve-swap" data-id="${request.id}">Approve</button><button class="danger reject-swap" data-id="${request.id}">Reject</button></div>` : !admin && ["pending", "approved"].includes(request.status) && request.requester === $("swapRequester").value ? `<button class="danger revoke-swap" data-id="${request.id}">${request.status === "approved" ? "Revoke approved swap" : "Revoke request"}</button>` : ""}</div>`).join("");
+}
+async function revokeSwap(id) {
+  const request = state.swapRequests.find((item) => item.id === id);
+  if (!request || !["pending", "approved"].includes(request.status) || request.requester !== $("swapRequester").value) return;
+  const before = structuredClone(request), previousStatus = request.status;
+  if (previousStatus === "approved") {
+    const roster = Object.values(state.rosters).find((item) => item.assignments.some((row) => row.date === request.fromDate) && item.assignments.some((row) => row.date === request.toDate));
+    const source = roster?.assignments.find((row) => row.date === request.fromDate), destination = roster?.assignments.find((row) => row.date === request.toDate);
+    if (!source?.assigned.includes(request.colleague) || !destination?.assigned.includes(request.requester) || source.assigned.includes(request.requester) || destination.assigned.includes(request.colleague)) {
+      alert("This approved swap can no longer be safely reversed because the roster changed. Ask the admin to review it."); return;
+    }
+    source.assigned[source.assigned.indexOf(request.colleague)] = request.requester;
+    destination.assigned[destination.assigned.indexOf(request.requester)] = request.colleague;
+  }
+  request.status = "revoked"; request.revokedAt = new Date().toISOString();
+  audit("SWAP_REVOKED", displayName(request.requester), `${previousStatus === "approved" ? "Reversed approved" : "Revoked pending"} swap ${id}`, before, request);
+  persist(); renderRoster(); renderSwap(); renderAdmin();
+  if (window.RosterBackend.configured) { try { await window.RosterBackend.revokeSwap(id); } catch (error) { alert(`Shared revocation failed: ${error.message}`); } }
 }
 async function submitSwap() {
   const request = { id: crypto.randomUUID(), requester: $("swapRequester").value, fromDate: $("swapFromDate").value, colleague: $("swapColleague").value, toDate: $("swapToDate").value, reason: $("swapReason").value.trim(), status: "pending", createdAt: new Date().toISOString() };
@@ -189,6 +227,7 @@ async function decideSwap(id, approved) {
     const [month, roster] = rosterEntry, oldRoster = structuredClone(roster);
     const rowA = roster.assignments.find((row) => row.date === request.fromDate), rowB = roster.assignments.find((row) => row.date === request.toDate);
     if (!rowA.assigned.includes(request.requester) || !rowB.assigned.includes(request.colleague)) { alert("Assignments changed; this request must be reviewed again."); return; }
+    if (rowA.assigned.includes(request.colleague) || rowB.assigned.includes(request.requester)) { alert("Swap rejected: one employee is already assigned on the destination date."); return; }
     rowA.assigned[rowA.assigned.indexOf(request.requester)] = request.colleague;
     rowB.assigned[rowB.assigned.indexOf(request.colleague)] = request.requester;
     request.status = "approved"; request.decidedAt = new Date().toISOString(); request.admin = admin;
@@ -232,7 +271,7 @@ $("nextMonth").addEventListener("click", () => { shownMonth = new Date(shownMont
 $("saveButton").addEventListener("click", saveAvailability);
 $("generateButton").addEventListener("click", () => { const admin = $("adminName").value.trim(); if (!admin) alert("Enter the administrator name first."); else generateRoster(admin); });
 $("swapRequester").addEventListener("change", renderSwap); $("swapColleague").addEventListener("change", renderSwap); $("submitSwap").addEventListener("click", submitSwap);
-$("swapFromDate").addEventListener("change", updateSwapButton); $("swapToDate").addEventListener("change", updateSwapButton);
+$("swapFromDate").addEventListener("change", renderSwap); $("swapToDate").addEventListener("change", updateSwapButton);
 $("exportButton").addEventListener("click", () => downloadJSON(state, `weekend-roster-${monthKey(shownMonth)}.json`));
 $("downloadAudit").addEventListener("click", () => downloadJSON({ exportedAt: new Date().toISOString(), entries: state.audit }, "weekend-roster-audit-log.json"));
 $("finalizeButton").addEventListener("click", finalizeMonth);
@@ -290,5 +329,7 @@ async function initializeSharedMode() {
 function renderAll() { renderCalendar(); renderRoster(); renderSwap(); renderAdmin(); }
 setOptions($("personSelect"), teamOptions(PEOPLE), "");
 loadPersonDraft(); renderAll(); updateClock(); setInterval(updateClock, 1000);
-if (realNow.getDate() >= 29 && !state.rosters[monthKey(shownMonth)]) generateRoster();
+const currentRoster = state.rosters[monthKey(shownMonth)];
+if (currentRoster && !rosterIsValid(currentRoster) && !window.RosterBackend.configured) generateRoster("Roster validator");
+else if (realNow.getDate() >= 29 && !currentRoster) generateRoster();
 initializeSharedMode();

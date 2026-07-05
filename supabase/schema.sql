@@ -57,7 +57,7 @@ create table if not exists public.swap_requests (
   from_date date not null,
   to_date date not null,
   reason text,
-  status text not null default 'pending' check(status in ('pending','approved','rejected')),
+  status text not null default 'pending' check(status in ('pending','approved','rejected','revoked')),
   decided_by uuid references public.profiles(user_id),
   created_at timestamptz not null default now(),
   decided_at timestamptz
@@ -167,8 +167,31 @@ begin
   values(auth.uid(),member.employee_code,member.full_name,'SWAP_REQUESTED','Swap request created',p_request);
   return request_id;
 end $$;
+create or replace function public.revoke_swap_request(p_request_id uuid) returns void language plpgsql security definer set search_path=public as $$
+declare member team_members; req swap_requests; roster_row rosters; requester_code text; prior jsonb; assignments jsonb:='[]'; item jsonb; assigned jsonb; source_assigned jsonb; destination_assigned jsonb;
+begin
+  member:=current_member(); select * into req from swap_requests where id=p_request_id and requester_id=member.id and status in ('pending','approved') for update;
+  if req.id is null then raise exception 'Revocable swap not found'; end if;
+  if req.status='approved' then
+    select * into roster_row from rosters where roster_month=date_trunc('month',req.from_date)::date for update;
+    if roster_row.roster_month is null then raise exception 'Roster not found'; end if; prior:=roster_row.roster; requester_code:=member.employee_code;
+    select value->'assigned' into source_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.from_date::text;
+    select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
+    if not (source_assigned ? req.colleague_code) or not (destination_assigned ? requester_code) or source_assigned ? requester_code or destination_assigned ? req.colleague_code then raise exception 'Roster changed; approved swap cannot be safely reversed'; end if;
+    for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
+      assigned:=item->'assigned';
+      if (item->>'date')::date=req.from_date then assigned:=(select jsonb_agg(case when value#>>'{}'=req.colleague_code then to_jsonb(requester_code) else value end) from jsonb_array_elements(assigned)); end if;
+      if (item->>'date')::date=req.to_date then assigned:=(select jsonb_agg(case when value#>>'{}'=requester_code then to_jsonb(req.colleague_code) else value end) from jsonb_array_elements(assigned)); end if;
+      assignments:=assignments||jsonb_build_array(jsonb_set(item,'{assigned}',assigned));
+    end loop;
+    update rosters set roster=jsonb_set(roster,'{assignments}',assignments) where roster_month=roster_row.roster_month;
+  end if;
+  update swap_requests set status='revoked',decided_at=now() where id=req.id;
+  insert into audit_log(actor_id,actor_code,actor_name,action,details,before_data,after_data)
+  values(auth.uid(),member.employee_code,member.full_name,'SWAP_REVOKED','Requester revoked '||req.status||' swap',coalesce(prior,to_jsonb(req)),case when req.status='approved' then (select roster from rosters where roster_month=roster_row.roster_month) else jsonb_build_object('status','revoked') end);
+end $$;
 create or replace function public.decide_swap_request(p_request_id uuid,p_approved boolean) returns void language plpgsql security definer set search_path=public as $$
-declare admin_profile profiles; admin_member team_members; req swap_requests; roster_row rosters; prior jsonb; assignments jsonb:='[]'; item jsonb; assigned jsonb; requester_code text;
+declare admin_profile profiles; admin_member team_members; req swap_requests; roster_row rosters; prior jsonb; assignments jsonb:='[]'; item jsonb; assigned jsonb; requester_code text; source_assigned jsonb; destination_assigned jsonb; colleague_id uuid;
 begin
   if not is_admin() then raise exception 'Admin access required'; end if;
   select * into admin_profile from profiles where user_id=auth.uid(); admin_member:=current_member();
@@ -181,6 +204,11 @@ begin
   end if;
   select * into roster_row from rosters where roster_month=date_trunc('month',req.from_date)::date for update;
   if roster_row.roster_month is null then raise exception 'Roster not found'; end if; prior:=roster_row.roster;
+  select value->'assigned' into source_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.from_date::text;
+  select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
+  select id into colleague_id from team_members where employee_code=req.colleague_code;
+  if source_assigned ? req.colleague_code or destination_assigned ? requester_code then raise exception 'Employee already assigned on destination date'; end if;
+  if exists(select 1 from availability where employee_id=colleague_id and na_date=req.from_date) or exists(select 1 from availability where employee_id=req.requester_id and na_date=req.to_date) then raise exception 'Swap conflicts with submitted NA'; end if;
   for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
     assigned:=item->'assigned';
     if (item->>'date')::date=req.from_date then assigned:=(select jsonb_agg(case when value#>>'{}'=requester_code then to_jsonb(req.colleague_code) else value end) from jsonb_array_elements(assigned)); end if;
@@ -210,7 +238,7 @@ alter table profiles enable row level security; alter table team_members enable 
 alter table availability enable row level security; alter table submissions enable row level security; alter table rosters enable row level security;
 alter table swap_requests enable row level security; alter table audit_log enable row level security;
 revoke all on all tables in schema public from anon,authenticated;
-grant execute on function my_profile(),request_identity_mapping(text,text),get_mapping_requests(),decide_identity_mapping(uuid,boolean),get_roster_state(),save_my_availability(text,text,text[]),save_roster(text,jsonb),finalize_roster(text),create_swap_request(jsonb),decide_swap_request(uuid,boolean) to authenticated;
+grant execute on function my_profile(),request_identity_mapping(text,text),get_mapping_requests(),decide_identity_mapping(uuid,boolean),get_roster_state(),save_my_availability(text,text,text[]),save_roster(text,jsonb),finalize_roster(text),create_swap_request(jsonb),revoke_swap_request(uuid),decide_swap_request(uuid,boolean) to authenticated;
 
 -- Bootstrap the first administrator after their first Google login using the auth user UUID:
 -- update profiles set role='admin' where user_id='<auth-user-uuid>';

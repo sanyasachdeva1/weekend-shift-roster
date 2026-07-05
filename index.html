@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#163a70">
   <title>Weekend Shift Roster</title>
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
   <header class="topbar">
@@ -91,15 +91,11 @@
         </div>
         <div id="calendar" class="calendar" aria-label="Weekend availability calendar"></div>
         <p class="calendar-help">Only Saturdays and Sundays can be selected. Click a red date again to make it available.</p>
-      </article>
-
-      <aside class="team-card card">
-        <div class="section-heading">
-          <div><span>Responses</span><h2>Team availability</h2></div>
-          <strong id="responseCount">0 / 22</strong>
+        <div class="na-overview-wrap">
+          <div class="section-heading"><div><span>Before you submit</span><h2>NA by weekend date</h2></div></div>
+          <div id="naOverview" class="na-overview"></div>
         </div>
-        <div id="teamList" class="team-list"></div>
-      </aside>
+      </article>
     </section>
 
     <section class="roster-card card">
@@ -165,9 +161,9 @@
       ["EMP022", "Yokeswaran Yohadhandan"]
     ];
   </script>
-  <script src="config.js?v=4"></script>
-  <script src="backend.js?v=4"></script>
-  <script src="roster-engine.js?v=4"></script>
-  <script src="app.js?v=4"></script>
+  <script src="config.js?v=5"></script>
+  <script src="backend.js?v=5"></script>
+  <script src="roster-engine.js?v=5"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
