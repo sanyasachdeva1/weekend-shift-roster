@@ -20,6 +20,7 @@ const parseDate = (key) => new Date(`${key}T12:00:00`);
 const initials = (name) => name.split(" ").slice(0, 2).map((part) => part[0]).join("");
 const safe = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 const displayName = (code) => displayNames[code] || code;
+const teamOptions = (codes) => codes.map((value) => ({ value, label: displayName(value) }));
 const isSubmissionOpen = () => demoMode || (realNow.getDate() >= 15 && realNow.getDate() <= 28 && monthKey(shownMonth) === monthKey(new Date(realNow.getFullYear(), realNow.getMonth() + 1, 1)));
 
 function emptyState() { return { version: 2, availability: {}, submissions: {}, rosters: {}, swapRequests: [], audit: [] }; }
@@ -66,7 +67,7 @@ function loadPersonDraft() {
 }
 function renderPeople() {
   const selected = $("personSelect").value || PEOPLE[0];
-  setOptions($("personSelect"), PEOPLE, "");
+  setOptions($("personSelect"), teamOptions(PEOPLE), "");
   $("personSelect").value = selected;
   const month = monthKey(shownMonth);
   let responses = 0;
@@ -75,7 +76,7 @@ function renderPeople() {
     const count = Object.keys(state.availability[name]?.[month] || {}).length;
     if (submission) responses += 1;
     const badge = submission ? `<span class="badge done">Saved · ${count} NA</span>` : `<span class="badge">Default available</span>`;
-    return `<div class="person-row"><span class="avatar">${initials(name)}</span><div><strong title="${safe(displayName(name))}">${safe(displayName(name))}</strong><small>${submission ? `Submitted ${new Date(submission.savedAt).toLocaleString("en-IN")}` : "No response · available all month"}</small></div>${badge}</div>`;
+    return `<div class="person-row"><span class="avatar">${initials(displayName(name))}</span><div><strong title="${safe(displayName(name))}">${safe(displayName(name))}</strong><small>${submission ? `Submitted ${new Date(submission.savedAt).toLocaleString("en-IN")}` : "No response · available all month"}</small></div>${badge}</div>`;
   }).join("");
   $("responseCount").textContent = `${responses} / ${PEOPLE.length}`;
 }
@@ -102,7 +103,7 @@ async function saveAvailability() {
   state.availability[person][month] = Object.fromEntries([...pendingNA].map((key) => [key, true]));
   state.submissions[person] ||= {};
   state.submissions[person][month] = { savedAt: new Date().toISOString() };
-  audit("AVAILABILITY_SAVED", person, `${pendingNA.size} NA date(s) saved for ${month}`, before, state.availability[person][month]);
+  audit("AVAILABILITY_SAVED", displayName(person), `${pendingNA.size} NA date(s) saved for ${month}`, before, state.availability[person][month]);
   if (window.RosterBackend.configured) {
     try { await window.RosterBackend.saveAvailability(person, month, [...pendingNA]); }
     catch (error) { alert(`Shared save failed: ${error.message}`); return; }
@@ -154,8 +155,8 @@ function updateSwapButton() {
 }
 function renderSwap() {
   const requester = $("swapRequester").value || PEOPLE[0], colleague = $("swapColleague").value || PEOPLE[1], roster = currentSwapRoster();
-  setOptions($("swapRequester"), PEOPLE.filter((name) => !INACTIVE.has(name)), ""); $("swapRequester").value = requester;
-  setOptions($("swapColleague"), PEOPLE.filter((name) => !INACTIVE.has(name) && name !== requester), "");
+  setOptions($("swapRequester"), teamOptions(PEOPLE.filter((name) => !INACTIVE.has(name))), ""); $("swapRequester").value = requester;
+  setOptions($("swapColleague"), teamOptions(PEOPLE.filter((name) => !INACTIVE.has(name) && name !== requester)), "");
   $("swapColleague").value = colleague === requester ? PEOPLE.find((name) => !INACTIVE.has(name) && name !== requester) : colleague;
   setOptions($("swapFromDate"), employeeDates(roster, requester), "No assigned dates");
   setOptions($("swapToDate"), employeeDates(roster, $("swapColleague").value), "No assigned dates");
@@ -170,7 +171,7 @@ function requestCards(requests, admin = false) {
 }
 async function submitSwap() {
   const request = { id: crypto.randomUUID(), requester: $("swapRequester").value, fromDate: $("swapFromDate").value, colleague: $("swapColleague").value, toDate: $("swapToDate").value, reason: $("swapReason").value.trim(), status: "pending", createdAt: new Date().toISOString() };
-  state.swapRequests.push(request); audit("SWAP_REQUESTED", request.requester, `${request.fromDate} with ${request.colleague} on ${request.toDate}`, null, request);
+  state.swapRequests.push(request); audit("SWAP_REQUESTED", displayName(request.requester), `${request.fromDate} with ${displayName(request.colleague)} on ${request.toDate}`, null, request);
   if (window.RosterBackend.configured) {
     try { await window.RosterBackend.requestSwap(request); }
     catch (error) { alert(`Shared request failed: ${error.message}`); return; }
@@ -204,7 +205,7 @@ function renderAdmin() {
   $("adminRequests").innerHTML = requestCards(state.swapRequests.filter((request) => request.status === "pending"), true);
   document.querySelectorAll(".approve-swap").forEach((button) => button.addEventListener("click", () => decideSwap(button.dataset.id, true)));
   document.querySelectorAll(".reject-swap").forEach((button) => button.addEventListener("click", () => decideSwap(button.dataset.id, false)));
-  $("mappingRequests").innerHTML = identityRequests.length ? identityRequests.map((request) => `<div class="request-card"><div><strong>${safe(request.full_name)}</strong><p>${safe(request.employee_code)}</p><small>Google-authenticated account · ${new Date(request.created_at).toLocaleString("en-IN")}</small></div><div class="request-actions"><button class="primary approve-mapping" data-id="${request.id}">Approve</button><button class="danger reject-mapping" data-id="${request.id}">Reject</button></div></div>`).join("") : `<div class="empty-state">No pending account mappings.</div>`;
+  $("mappingRequests").innerHTML = identityRequests.length ? identityRequests.map((request) => `<div class="request-card"><div><strong>${safe(request.full_name)}</strong><small>Account mapping request · ${new Date(request.created_at).toLocaleString("en-IN")}</small></div><div class="request-actions"><button class="primary approve-mapping" data-id="${request.id}">Approve</button><button class="danger reject-mapping" data-id="${request.id}">Reject</button></div></div>`).join("") : `<div class="empty-state">No pending account mappings.</div>`;
   document.querySelectorAll(".approve-mapping").forEach((button) => button.addEventListener("click", () => decideIdentity(button.dataset.id, true)));
   document.querySelectorAll(".reject-mapping").forEach((button) => button.addEventListener("click", () => decideIdentity(button.dataset.id, false)));
   $("auditBody").innerHTML = state.audit.slice().reverse().map((entry) => `<tr><td>${new Date(entry.at).toLocaleString("en-IN")}</td><td>${safe(entry.actor)}</td><td>${safe(entry.action)}</td><td>${safe(entry.details)}</td></tr>`).join("") || `<tr><td colspan="4">No changes logged yet.</td></tr>`;
@@ -287,7 +288,7 @@ async function initializeSharedMode() {
 }
 
 function renderAll() { renderCalendar(); renderRoster(); renderSwap(); renderAdmin(); }
-setOptions($("personSelect"), PEOPLE, "");
+setOptions($("personSelect"), teamOptions(PEOPLE), "");
 loadPersonDraft(); renderAll(); updateClock(); setInterval(updateClock, 1000);
 if (realNow.getDate() >= 29 && !state.rosters[monthKey(shownMonth)]) generateRoster();
 initializeSharedMode();
