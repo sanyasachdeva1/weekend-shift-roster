@@ -24,12 +24,6 @@
     configured,
     async session() { const supabase = await getClient(); return supabase ? (await supabase.auth.getSession()).data.session : null; },
     async profile() { return rpc("my_profile"); },
-    async signIn(email) {
-      const supabase = await getClient();
-      if (!supabase) throw new Error("Supabase is not configured yet.");
-      const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: config.siteUrl } });
-      if (error) throw error;
-    },
     async signInWithGoogle() {
       const supabase = await getClient();
       if (!supabase) throw new Error("Supabase is not configured yet.");

@@ -204,7 +204,7 @@ function renderAdmin() {
   $("adminRequests").innerHTML = requestCards(state.swapRequests.filter((request) => request.status === "pending"), true);
   document.querySelectorAll(".approve-swap").forEach((button) => button.addEventListener("click", () => decideSwap(button.dataset.id, true)));
   document.querySelectorAll(".reject-swap").forEach((button) => button.addEventListener("click", () => decideSwap(button.dataset.id, false)));
-  $("mappingRequests").innerHTML = identityRequests.length ? identityRequests.map((request) => `<div class="request-card"><div><strong>${safe(request.full_name)}</strong><p>${safe(request.email)}</p><small>Google-authenticated account · ${new Date(request.created_at).toLocaleString("en-IN")}</small></div><div class="request-actions"><button class="primary approve-mapping" data-id="${request.id}">Approve</button><button class="danger reject-mapping" data-id="${request.id}">Reject</button></div></div>`).join("") : `<div class="empty-state">No pending account mappings.</div>`;
+  $("mappingRequests").innerHTML = identityRequests.length ? identityRequests.map((request) => `<div class="request-card"><div><strong>${safe(request.full_name)}</strong><p>${safe(request.employee_code)}</p><small>Google-authenticated account · ${new Date(request.created_at).toLocaleString("en-IN")}</small></div><div class="request-actions"><button class="primary approve-mapping" data-id="${request.id}">Approve</button><button class="danger reject-mapping" data-id="${request.id}">Reject</button></div></div>`).join("") : `<div class="empty-state">No pending account mappings.</div>`;
   document.querySelectorAll(".approve-mapping").forEach((button) => button.addEventListener("click", () => decideIdentity(button.dataset.id, true)));
   document.querySelectorAll(".reject-mapping").forEach((button) => button.addEventListener("click", () => decideIdentity(button.dataset.id, false)));
   $("auditBody").innerHTML = state.audit.slice().reverse().map((entry) => `<tr><td>${new Date(entry.at).toLocaleString("en-IN")}</td><td>${safe(entry.actor)}</td><td>${safe(entry.action)}</td><td>${safe(entry.details)}</td></tr>`).join("") || `<tr><td colspan="4">No changes logged yet.</td></tr>`;
@@ -246,11 +246,6 @@ $("googleSignIn").addEventListener("click", async () => {
   try { await window.RosterBackend.signInWithGoogle(); }
   catch (error) { $("authMessage").textContent = error.message; }
 });
-$("authForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  try { await window.RosterBackend.signIn($("authEmail").value); $("authMessage").textContent = "Magic link sent. Check your email."; }
-  catch (error) { $("authMessage").textContent = error.message; }
-});
 setOptions($("claimName"), TEAM.map(([value, label]) => ({ value, label })), "Select your name");
 $("claimIdentity").addEventListener("click", async () => {
   const employeeCode = $("claimName").value;
@@ -262,13 +257,6 @@ $("claimIdentity").addEventListener("click", async () => {
 
 async function initializeSharedMode() {
   if (!window.RosterBackend.configured) {
-    if (demoMode) return;
-    $("backendStatus").textContent = "Setup pending";
-    $("accountButton").textContent = "Login unavailable";
-    $("accountButton").disabled = true;
-    document.querySelectorAll("main button, main select, main input, main textarea").forEach((control) => control.disabled = true);
-    $("windowTitle").textContent = "Secure service setup is in progress";
-    $("windowMessage").textContent = "No roster information is available until authenticated storage is connected.";
     return;
   }
   $("backendStatus").textContent = "Shared Supabase"; $("backendStatus").className = "connection shared";
@@ -278,9 +266,9 @@ async function initializeSharedMode() {
     currentProfile = await window.RosterBackend.profile();
     const remote = await window.RosterBackend.loadState();
     if (remote) { state = { ...emptyState(), ...remote }; persist(); }
-    $("accountButton").textContent = `${currentProfile?.full_name || session.user.email} · Sign out`;
+    $("accountButton").textContent = `${currentProfile?.full_name || "Google user"} · Sign out`;
     if (!currentProfile?.employee_code) {
-      $("authMessage").textContent = "Your Google account is signed in but is not yet approved for a team member. Ask an admin to map your email.";
+      $("authMessage").textContent = "Your Google account is signed in but is not yet approved for a team member. Submit your name mapping for admin approval.";
       $("authDialog").showModal();
       $("claimSection").hidden = false;
       document.querySelectorAll("#availabilityPanel button, #swapPanel button, #availabilityPanel select, #swapPanel select").forEach((control) => control.disabled = true);

@@ -52,7 +52,7 @@ The database—not the visitor's laptop—enforces that submissions are accepted
 ### Identity and change tracking
 
 - Google performs authentication; Supabase issues the application session.
-- One authenticated `user_id` maps to one unique employee name and email.
+- One authenticated Google `user_id` maps to one unique employee code and name.
 - Unmapped Google accounts can sign in but cannot read or write roster data.
 - Employees cannot choose another name in shared mode, even by modifying browser code: database functions compare the requested person with `auth.uid()`.
 - Every save, swap request, roster generation, approval, rejection and finalization writes the authenticated user ID, display name, timestamp, before state and after state to `audit_log`.

@@ -13,7 +13,7 @@
       <p class="eyebrow">Operations · Weekend coverage</p>
       <h1>Weekend Shift Roster</h1>
     </div>
-    <div class="account-area">
+    <div class="account-area" hidden>
       <span id="backendStatus" class="connection local">Local demo</span>
       <button id="accountButton" class="account-button" type="button">Sign in</button>
     </div>
@@ -25,22 +25,19 @@
   </header>
 
   <dialog id="authDialog">
-    <form id="authForm" method="dialog" class="auth-card">
+    <div id="authForm" class="auth-card">
       <button id="closeAuth" class="dialog-close" type="button" aria-label="Close">×</button>
       <p class="eyebrow dark">Secure individual access</p>
       <h2>Sign in to your roster</h2>
       <p>Use your approved Google account. Your login is mapped to exactly one team member.</p>
       <button id="googleSignIn" class="google-button" type="button"><span class="google-g">G</span> Continue with Google</button>
-      <div class="auth-divider"><span>or use a one-time email link</span></div>
-      <label>Work email<input id="authEmail" type="email" autocomplete="email" required placeholder="Enter your work email"></label>
-      <button class="primary" type="submit">Email my sign-in link</button>
       <p id="authMessage" class="inline-message"></p>
       <div id="claimSection" class="claim-section" hidden>
         <label>Your full name<select id="claimName"></select></label>
         <button id="claimIdentity" class="primary" type="button">Request name mapping</button>
         <small>An administrator must approve this Google account before roster access is enabled.</small>
       </div>
-    </form>
+    </div>
   </dialog>
 
   <main>
@@ -75,7 +72,7 @@
       </div>
       <div class="actions">
         <span id="saveState" class="save-state">No unsaved changes</span>
-        <button id="saveButton" class="primary" type="button">Save availability</button>
+        <button id="saveButton" class="primary" type="button">Submit availability</button>
         <button id="exportButton" class="secondary" type="button">Export data</button>
         <label class="button secondary" for="importFile">Import data</label>
         <input id="importFile" type="file" accept="application/json" hidden>
@@ -154,7 +151,7 @@
     </section>
   </main>
 
-  <footer>Prototype · Availability is stored in this browser until exported or connected to a shared database.</footer>
+  <footer>Weekend roster · Submit NA dates between the 15th and 28th for the following month.</footer>
   <script>
     window.PUBLIC_TEAM = [
       ["EMP001", "Sanya Sachdeva"], ["EMP002", "Aarushi Garg"], ["EMP003", "Anmol Singh"],

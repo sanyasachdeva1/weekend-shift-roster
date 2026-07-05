@@ -2,7 +2,6 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  email text unique not null,
   role text not null default 'employee' check (role in ('employee','admin')),
   active boolean not null default true,
   created_at timestamptz not null default now()
@@ -21,7 +20,6 @@ on conflict(employee_code) do nothing;
 create table if not exists public.identity_mapping_requests (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(user_id),
-  email text not null,
   employee_code text not null references public.team_members(employee_code),
   full_name text not null,
   status text not null default 'pending' check (status in ('pending','approved','rejected')),
@@ -69,7 +67,6 @@ create table if not exists public.audit_log (
   occurred_at timestamptz not null default now(),
   actor_id uuid references public.profiles(user_id),
   actor_code text,
-  actor_email text,
   actor_name text,
   action text not null,
   details text not null,
@@ -84,12 +81,12 @@ create or replace function public.current_member() returns public.team_members l
   select t from team_members t join profiles p on p.user_id=t.user_id where p.user_id=auth.uid() and p.active and t.active;
 $$;
 create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$
-begin insert into profiles(user_id,email) values(new.id,lower(new.email)) on conflict do nothing; return new; end $$;
+begin insert into profiles(user_id) values(new.id) on conflict do nothing; return new; end $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
 
 create or replace function public.my_profile() returns jsonb language sql stable security definer set search_path=public as $$
-  select jsonb_build_object('email',p.email,'role',p.role,'active',p.active,'employee_code',t.employee_code,'full_name',t.full_name)
+  select jsonb_build_object('role',p.role,'active',p.active,'employee_code',t.employee_code,'full_name',t.full_name)
   from profiles p left join team_members t on t.user_id=p.user_id where p.user_id=auth.uid();
 $$;
 create or replace function public.request_identity_mapping(p_employee_code text,p_full_name text) returns uuid language plpgsql security definer set search_path=public as $$
@@ -100,7 +97,7 @@ begin
   if exists(select 1 from team_members where user_id=auth.uid()) then raise exception 'Account already mapped'; end if;
   if not exists(select 1 from team_members where employee_code=p_employee_code and user_id is null) then raise exception 'That employee is already mapped or unavailable'; end if;
   if length(trim(p_full_name)) not between 3 and 120 then raise exception 'Enter a valid full name'; end if;
-  insert into identity_mapping_requests(user_id,email,employee_code,full_name) values(auth.uid(),p.email,p_employee_code,trim(p_full_name)) returning id into request_id;
+  insert into identity_mapping_requests(user_id,employee_code,full_name) values(auth.uid(),p_employee_code,trim(p_full_name)) returning id into request_id;
   return request_id;
 end $$;
 create or replace function public.get_mapping_requests() returns jsonb language sql stable security definer set search_path=public as $$
@@ -120,54 +117,54 @@ begin
     update team_members set user_id=req.user_id,full_name=req.full_name where id=member.id;
   end if;
   update identity_mapping_requests set status=case when p_approved then 'approved' else 'rejected' end,decided_at=now(),decided_by=auth.uid() where id=req.id;
-  insert into audit_log(actor_id,actor_email,actor_name,action,details,before_data,after_data)
-  values(auth.uid(),admin_profile.email,(select full_name from team_members where user_id=auth.uid()),case when p_approved then 'IDENTITY_APPROVED' else 'IDENTITY_REJECTED' end,'Identity mapping decision',to_jsonb(req),jsonb_build_object('approved',p_approved,'employee_code',member.employee_code));
+  insert into audit_log(actor_id,actor_name,action,details,before_data,after_data)
+  values(auth.uid(),(select full_name from team_members where user_id=auth.uid()),case when p_approved then 'IDENTITY_APPROVED' else 'IDENTITY_REJECTED' end,'Identity mapping decision',to_jsonb(req),jsonb_build_object('approved',p_approved,'employee_code',member.employee_code));
 end $$;
 
 create or replace function public.save_my_availability(p_employee_code text,p_month text,p_na_dates text[]) returns void language plpgsql security definer set search_path=public as $$
-declare member team_members; profile profiles; month_date date:=(p_month||'-01')::date; today_ist date:=(now() at time zone 'Asia/Kolkata')::date; prior jsonb;
+declare member team_members; month_date date:=(p_month||'-01')::date; today_ist date:=(now() at time zone 'Asia/Kolkata')::date; prior jsonb;
 begin
-  member:=current_member(); select * into profile from profiles where user_id=auth.uid();
+  member:=current_member();
   if member.id is null or member.employee_code<>p_employee_code then raise exception 'Cannot save another employee account'; end if;
   if extract(day from today_ist) not between 15 and 28 or month_date<>date_trunc('month',today_ist+interval '1 month')::date then raise exception 'Submission window is closed'; end if;
   select coalesce(jsonb_agg(na_date order by na_date),'[]') into prior from availability where employee_id=member.id and roster_month=month_date;
   delete from availability where employee_id=member.id and roster_month=month_date;
   insert into availability(employee_id,roster_month,na_date) select member.id,month_date,x::date from unnest(p_na_dates)x;
   insert into submissions(employee_id,roster_month) values(member.id,month_date) on conflict(employee_id,roster_month) do update set saved_at=now();
-  insert into audit_log(actor_id,actor_code,actor_email,actor_name,action,details,before_data,after_data)
-  values(auth.uid(),member.employee_code,profile.email,member.full_name,'AVAILABILITY_SAVED','Availability saved for '||p_month,prior,to_jsonb(p_na_dates));
+  insert into audit_log(actor_id,actor_code,actor_name,action,details,before_data,after_data)
+  values(auth.uid(),member.employee_code,member.full_name,'AVAILABILITY_SAVED','Availability saved for '||p_month,prior,to_jsonb(p_na_dates));
 end $$;
 
 create or replace function public.save_roster(p_month text,p_roster jsonb) returns void language plpgsql security definer set search_path=public as $$
-declare p profiles; member team_members; month_date date:=(p_month||'-01')::date; prior jsonb;
+declare member team_members; month_date date:=(p_month||'-01')::date; prior jsonb;
 begin
   if not is_admin() then raise exception 'Admin access required'; end if;
-  select * into p from profiles where user_id=auth.uid(); member:=current_member(); select roster into prior from rosters where roster_month=month_date;
+  member:=current_member(); select roster into prior from rosters where roster_month=month_date;
   insert into rosters(roster_month,status,roster,generated_by) values(month_date,coalesce(p_roster->>'status','draft'),p_roster,auth.uid())
   on conflict(roster_month) do update set status=excluded.status,roster=excluded.roster,generated_by=auth.uid(),generated_at=now();
-  insert into audit_log(actor_id,actor_code,actor_email,actor_name,action,details,before_data,after_data)
-  values(auth.uid(),member.employee_code,p.email,member.full_name,'ROSTER_SAVED','Roster saved for '||p_month,prior,p_roster);
+  insert into audit_log(actor_id,actor_code,actor_name,action,details,before_data,after_data)
+  values(auth.uid(),member.employee_code,member.full_name,'ROSTER_SAVED','Roster saved for '||p_month,prior,p_roster);
 end $$;
 create or replace function public.finalize_roster(p_month text) returns void language plpgsql security definer set search_path=public as $$
-declare p profiles; member team_members; month_date date:=(p_month||'-01')::date; prior jsonb;
+declare member team_members; month_date date:=(p_month||'-01')::date; prior jsonb;
 begin
   if not is_admin() then raise exception 'Admin access required'; end if;
-  select * into p from profiles where user_id=auth.uid(); member:=current_member(); select roster into prior from rosters where roster_month=month_date for update;
+  member:=current_member(); select roster into prior from rosters where roster_month=month_date for update;
   if prior is null then raise exception 'Roster not found'; end if;
   update rosters set status='finalized',finalized_at=now(),roster=jsonb_set(jsonb_set(roster,'{status}','"finalized"'),'{finalizedAt}',to_jsonb(now())) where roster_month=month_date;
-  insert into audit_log(actor_id,actor_code,actor_email,actor_name,action,details,before_data,after_data)
-  values(auth.uid(),member.employee_code,p.email,member.full_name,'ROSTER_FINALIZED','Finalized '||p_month,prior,(select roster from rosters where roster_month=month_date));
+  insert into audit_log(actor_id,actor_code,actor_name,action,details,before_data,after_data)
+  values(auth.uid(),member.employee_code,member.full_name,'ROSTER_FINALIZED','Finalized '||p_month,prior,(select roster from rosters where roster_month=month_date));
 end $$;
 
 create or replace function public.create_swap_request(p_request jsonb) returns uuid language plpgsql security definer set search_path=public as $$
-declare member team_members; profile profiles; request_id uuid;
+declare member team_members; request_id uuid;
 begin
-  member:=current_member(); select * into profile from profiles where user_id=auth.uid();
+  member:=current_member();
   if member.id is null or member.employee_code<>p_request->>'requester' then raise exception 'Requester does not match login'; end if;
   insert into swap_requests(id,requester_id,colleague_code,from_date,to_date,reason)
   values((p_request->>'id')::uuid,member.id,p_request->>'colleague',(p_request->>'fromDate')::date,(p_request->>'toDate')::date,p_request->>'reason') returning id into request_id;
-  insert into audit_log(actor_id,actor_code,actor_email,actor_name,action,details,after_data)
-  values(auth.uid(),member.employee_code,profile.email,member.full_name,'SWAP_REQUESTED','Swap request created',p_request);
+  insert into audit_log(actor_id,actor_code,actor_name,action,details,after_data)
+  values(auth.uid(),member.employee_code,member.full_name,'SWAP_REQUESTED','Swap request created',p_request);
   return request_id;
 end $$;
 create or replace function public.decide_swap_request(p_request_id uuid,p_approved boolean) returns void language plpgsql security definer set search_path=public as $$
@@ -180,7 +177,7 @@ begin
   select employee_code into requester_code from team_members where id=req.requester_id;
   if not p_approved then
     update swap_requests set status='rejected',decided_by=auth.uid(),decided_at=now() where id=req.id;
-    insert into audit_log(actor_id,actor_code,actor_email,actor_name,action,details,before_data) values(auth.uid(),admin_member.employee_code,admin_profile.email,admin_member.full_name,'SWAP_REJECTED','Swap rejected',to_jsonb(req)); return;
+    insert into audit_log(actor_id,actor_code,actor_name,action,details,before_data) values(auth.uid(),admin_member.employee_code,admin_member.full_name,'SWAP_REJECTED','Swap rejected',to_jsonb(req)); return;
   end if;
   select * into roster_row from rosters where roster_month=date_trunc('month',req.from_date)::date for update;
   if roster_row.roster_month is null then raise exception 'Roster not found'; end if; prior:=roster_row.roster;
@@ -192,8 +189,8 @@ begin
   end loop;
   update rosters set roster=jsonb_set(roster,'{assignments}',assignments) where roster_month=roster_row.roster_month;
   update swap_requests set status='approved',decided_by=auth.uid(),decided_at=now() where id=req.id;
-  insert into audit_log(actor_id,actor_code,actor_email,actor_name,action,details,before_data,after_data)
-  values(auth.uid(),admin_member.employee_code,admin_profile.email,admin_member.full_name,'SWAP_APPROVED','Approved swap '||req.id,prior,(select roster from rosters where roster_month=roster_row.roster_month));
+  insert into audit_log(actor_id,actor_code,actor_name,action,details,before_data,after_data)
+  values(auth.uid(),admin_member.employee_code,admin_member.full_name,'SWAP_APPROVED','Approved swap '||req.id,prior,(select roster from rosters where roster_month=roster_row.roster_month));
 end $$;
 
 create or replace function public.get_roster_state() returns jsonb language plpgsql stable security definer set search_path=public as $$
@@ -215,6 +212,6 @@ alter table swap_requests enable row level security; alter table audit_log enabl
 revoke all on all tables in schema public from anon,authenticated;
 grant execute on function my_profile(),request_identity_mapping(text,text),get_mapping_requests(),decide_identity_mapping(uuid,boolean),get_roster_state(),save_my_availability(text,text,text[]),save_roster(text,jsonb),finalize_roster(text),create_swap_request(jsonb),decide_swap_request(uuid,boolean) to authenticated;
 
--- Bootstrap the first administrator after their first Google login. Keep the real email private:
--- update profiles set role='admin' where email='<verified-admin-email>';
--- update team_members set user_id=(select user_id from profiles where role='admin'), full_name='<admin-name>' where employee_code='EMP001';
+-- Bootstrap the first administrator after their first Google login using the auth user UUID:
+-- update profiles set role='admin' where user_id='<auth-user-uuid>';
+-- update team_members set user_id='<auth-user-uuid>', full_name='<admin-name>' where employee_code='EMP001';
