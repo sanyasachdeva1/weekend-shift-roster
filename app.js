@@ -1,4 +1,5 @@
-const PEOPLE = Array.from({ length: 22 }, (_, index) => `EMP${String(index + 1).padStart(3, "0")}`);
+const TEAM = window.PUBLIC_TEAM || [];
+const PEOPLE = TEAM.map(([code]) => code);
 // No hard-coded PTO: anyone who does not submit NA dates is available by default.
 const INACTIVE = new Set();
 const STORAGE_KEY = "weekend-roster-data-v2";
@@ -11,7 +12,7 @@ let pendingNA = new Set();
 let dirty = false;
 let currentProfile = null;
 let identityRequests = [];
-let displayNames = {};
+let displayNames = Object.fromEntries(TEAM);
 
 const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const monthKey = (date) => dateKey(date).slice(0, 7);
@@ -250,10 +251,12 @@ $("authForm").addEventListener("submit", async (event) => {
   try { await window.RosterBackend.signIn($("authEmail").value); $("authMessage").textContent = "Magic link sent. Check your email."; }
   catch (error) { $("authMessage").textContent = error.message; }
 });
+setOptions($("claimName"), TEAM.map(([value, label]) => ({ value, label })), "Select your name");
 $("claimIdentity").addEventListener("click", async () => {
-  const fullName = $("claimName").value.trim();
-  if (fullName.length < 3) { $("authMessage").textContent = "Enter your full name first."; return; }
-  try { await window.RosterBackend.requestIdentity(fullName); $("authMessage").textContent = "Mapping requested. An administrator must approve it before you can continue."; }
+  const employeeCode = $("claimName").value;
+  const fullName = displayName(employeeCode);
+  if (!employeeCode) { $("authMessage").textContent = "Select your name first."; return; }
+  try { await window.RosterBackend.requestIdentity(employeeCode, fullName); $("authMessage").textContent = "Mapping requested. An administrator must approve it before you can continue."; }
   catch (error) { $("authMessage").textContent = error.message; }
 });
 
@@ -283,7 +286,7 @@ async function initializeSharedMode() {
       document.querySelectorAll("#availabilityPanel button, #swapPanel button, #availabilityPanel select, #swapPanel select").forEach((control) => control.disabled = true);
       return;
     }
-    displayNames = Object.fromEntries((remote.team || []).map((member) => [member.employee_code, member.full_name]));
+    displayNames = { ...displayNames, ...Object.fromEntries((remote.team || []).map((member) => [member.employee_code, member.full_name])) };
     $("personSelect").value = currentProfile.employee_code; $("personSelect").disabled = true;
     const adminTab = document.querySelector('[data-panel="adminPanel"]');
     adminTab.hidden = currentProfile?.role !== "admin";

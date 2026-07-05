@@ -22,6 +22,7 @@ create table if not exists public.identity_mapping_requests (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(user_id),
   email text not null,
+  employee_code text not null references public.team_members(employee_code),
   full_name text not null,
   status text not null default 'pending' check (status in ('pending','approved','rejected')),
   created_at timestamptz not null default now(),
@@ -91,14 +92,15 @@ create or replace function public.my_profile() returns jsonb language sql stable
   select jsonb_build_object('email',p.email,'role',p.role,'active',p.active,'employee_code',t.employee_code,'full_name',t.full_name)
   from profiles p left join team_members t on t.user_id=p.user_id where p.user_id=auth.uid();
 $$;
-create or replace function public.request_identity_mapping(p_full_name text) returns uuid language plpgsql security definer set search_path=public as $$
+create or replace function public.request_identity_mapping(p_employee_code text,p_full_name text) returns uuid language plpgsql security definer set search_path=public as $$
 declare p profiles; request_id uuid;
 begin
   select * into p from profiles where user_id=auth.uid() and active;
   if p.user_id is null then raise exception 'Authenticated profile required'; end if;
   if exists(select 1 from team_members where user_id=auth.uid()) then raise exception 'Account already mapped'; end if;
+  if not exists(select 1 from team_members where employee_code=p_employee_code and user_id is null) then raise exception 'That employee is already mapped or unavailable'; end if;
   if length(trim(p_full_name)) not between 3 and 120 then raise exception 'Enter a valid full name'; end if;
-  insert into identity_mapping_requests(user_id,email,full_name) values(auth.uid(),p.email,trim(p_full_name)) returning id into request_id;
+  insert into identity_mapping_requests(user_id,email,employee_code,full_name) values(auth.uid(),p.email,p_employee_code,trim(p_full_name)) returning id into request_id;
   return request_id;
 end $$;
 create or replace function public.get_mapping_requests() returns jsonb language sql stable security definer set search_path=public as $$
@@ -113,8 +115,8 @@ begin
   select * into req from identity_mapping_requests where id=p_request_id and status='pending' for update;
   if req.id is null then raise exception 'Pending mapping not found'; end if;
   if p_approved then
-    select * into member from team_members where user_id is null order by employee_code limit 1 for update;
-    if member.id is null then raise exception 'No employee slots remain'; end if;
+    select * into member from team_members where employee_code=req.employee_code and user_id is null for update;
+    if member.id is null then raise exception 'That employee was already assigned'; end if;
     update team_members set user_id=req.user_id,full_name=req.full_name where id=member.id;
   end if;
   update identity_mapping_requests set status=case when p_approved then 'approved' else 'rejected' end,decided_at=now(),decided_by=auth.uid() where id=req.id;
@@ -211,7 +213,7 @@ alter table profiles enable row level security; alter table team_members enable 
 alter table availability enable row level security; alter table submissions enable row level security; alter table rosters enable row level security;
 alter table swap_requests enable row level security; alter table audit_log enable row level security;
 revoke all on all tables in schema public from anon,authenticated;
-grant execute on function my_profile(),request_identity_mapping(text),get_mapping_requests(),decide_identity_mapping(uuid,boolean),get_roster_state(),save_my_availability(text,text,text[]),save_roster(text,jsonb),finalize_roster(text),create_swap_request(jsonb),decide_swap_request(uuid,boolean) to authenticated;
+grant execute on function my_profile(),request_identity_mapping(text,text),get_mapping_requests(),decide_identity_mapping(uuid,boolean),get_roster_state(),save_my_availability(text,text,text[]),save_roster(text,jsonb),finalize_roster(text),create_swap_request(jsonb),decide_swap_request(uuid,boolean) to authenticated;
 
 -- Bootstrap the first administrator after their first Google login. Keep the real email private:
 -- update profiles set role='admin' where email='<verified-admin-email>';

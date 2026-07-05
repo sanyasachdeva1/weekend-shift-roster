@@ -36,7 +36,7 @@
       <button class="primary" type="submit">Email my sign-in link</button>
       <p id="authMessage" class="inline-message"></p>
       <div id="claimSection" class="claim-section" hidden>
-        <label>Your full name<input id="claimName" autocomplete="name" maxlength="120" placeholder="Enter your full name"></label>
+        <label>Your full name<select id="claimName"></select></label>
         <button id="claimIdentity" class="primary" type="button">Request name mapping</button>
         <small>An administrator must approve this Google account before roster access is enabled.</small>
       </div>
@@ -155,6 +155,19 @@
   </main>
 
   <footer>Prototype · Availability is stored in this browser until exported or connected to a shared database.</footer>
+  <script>
+    window.PUBLIC_TEAM = [
+      ["EMP001", "Sanya Sachdeva"], ["EMP002", "Aarushi Garg"], ["EMP003", "Anmol Singh"],
+      ["EMP004", "Charan Sai Kumar Reddy Gondesi"], ["EMP005", "Goutham Reddy Akula"],
+      ["EMP006", "Hariprasad Natarajan"], ["EMP007", "Harish Kumar Thirumurugasakthivel"],
+      ["EMP008", "Kishan Ravindranath"], ["EMP009", "Lakshmi R"], ["EMP010", "Naveen Kumar M"],
+      ["EMP011", "Phiravin Arulmozhi"], ["EMP012", "Prabu N"], ["EMP013", "Rakshith L"],
+      ["EMP014", "Renjith Gopalakrishna Pillai"], ["EMP015", "Sai Amrutha"], ["EMP016", "Shreya Jain"],
+      ["EMP017", "Simran Vyas"], ["EMP018", "Sri Pavan Gurajala"], ["EMP019", "Sunil Tiwari"],
+      ["EMP020", "Swetha Lakshme Sridharan"], ["EMP021", "Vritti Mehrotra"],
+      ["EMP022", "Yokeswaran Yohadhandan"]
+    ];
+  </script>
   <script src="config.js?v=3"></script>
   <script src="backend.js?v=3"></script>
   <script src="roster-engine.js?v=3"></script>

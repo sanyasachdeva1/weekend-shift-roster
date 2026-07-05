@@ -41,7 +41,7 @@
     },
     async signOut() { const supabase = await getClient(); if (supabase) await supabase.auth.signOut(); },
     async loadState() { return rpc("get_roster_state"); },
-    async requestIdentity(fullName) { return rpc("request_identity_mapping", { p_full_name: fullName }); },
+    async requestIdentity(employeeCode, fullName) { return rpc("request_identity_mapping", { p_employee_code: employeeCode, p_full_name: fullName }); },
     async mappingRequests() { return rpc("get_mapping_requests"); },
     async decideIdentity(requestId, approved) { return rpc("decide_identity_mapping", { p_request_id: requestId, p_approved: approved }); },
     async saveAvailability(employeeCode, month, dates) { return rpc("save_my_availability", { p_employee_code: employeeCode, p_month: month, p_na_dates: dates }); },
