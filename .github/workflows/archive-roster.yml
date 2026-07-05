@@ -1,0 +1,31 @@
+name: Archive finalized roster
+on:
+  schedule:
+    - cron: "30 0 2 * *"
+  workflow_dispatch:
+    inputs:
+      month:
+        description: Month to archive (YYYY-MM)
+        required: false
+permissions:
+  contents: write
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/archive-history.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ROSTER_MONTH: ${{ inputs.month }}
+      - name: Commit archive
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/history
+          git diff --cached --quiet || git commit -m "archive: finalized roster history"
+          git push

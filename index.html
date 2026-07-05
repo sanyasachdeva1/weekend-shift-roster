@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#163a70">
+  <title>Weekend Shift Roster</title>
+  <link rel="stylesheet" href="styles.css?v=3">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Operations · Weekend coverage</p>
+      <h1>Weekend Shift Roster</h1>
+    </div>
+    <div class="account-area">
+      <span id="backendStatus" class="connection local">Local demo</span>
+      <button id="accountButton" class="account-button" type="button">Sign in</button>
+    </div>
+    <div class="clock" aria-live="polite">
+      <strong id="liveTime">--:--:--</strong>
+      <span id="liveDate">Loading date…</span>
+      <small>Asia/Kolkata</small>
+    </div>
+  </header>
+
+  <dialog id="authDialog">
+    <form id="authForm" method="dialog" class="auth-card">
+      <button id="closeAuth" class="dialog-close" type="button" aria-label="Close">×</button>
+      <p class="eyebrow dark">Secure individual access</p>
+      <h2>Sign in to your roster</h2>
+      <p>Use your approved Google account. Your login is mapped to exactly one team member.</p>
+      <button id="googleSignIn" class="google-button" type="button"><span class="google-g">G</span> Continue with Google</button>
+      <div class="auth-divider"><span>or use a one-time email link</span></div>
+      <label>Work email<input id="authEmail" type="email" autocomplete="email" required placeholder="name@company.com"></label>
+      <button class="primary" type="submit">Email my sign-in link</button>
+      <p id="authMessage" class="inline-message"></p>
+      <div id="claimSection" class="claim-section" hidden>
+        <label>Your full name<input id="claimName" autocomplete="name" maxlength="120" placeholder="Enter your full name"></label>
+        <button id="claimIdentity" class="primary" type="button">Request name mapping</button>
+        <small>An administrator must approve this Google account before roster access is enabled.</small>
+      </div>
+    </form>
+  </dialog>
+
+  <main>
+    <section id="windowNotice" class="notice">
+      <div>
+        <strong id="windowTitle">Checking submission window…</strong>
+        <span id="windowMessage">Availability opens from the 15th to the 28th for next month.</span>
+      </div>
+      <span id="windowBadge" class="window-badge">—</span>
+    </section>
+
+    <nav class="tabs" aria-label="Roster workflows">
+      <button class="tab active" data-panel="availabilityPanel" type="button">Availability</button>
+      <button class="tab" data-panel="swapPanel" type="button">Shift swap</button>
+      <button class="tab" data-panel="adminPanel" type="button">Admin</button>
+    </nav>
+
+    <div id="availabilityPanel" class="panel active">
+
+    <section class="controls card">
+        <label>
+          Team member
+          <select id="personSelect"></select>
+        </label>
+      <div class="month-switcher" aria-label="Calendar month controls">
+        <button id="prevMonth" class="icon-button" type="button" aria-label="Previous month">←</button>
+        <div>
+          <span>Availability for</span>
+          <strong id="monthTitle"></strong>
+        </div>
+        <button id="nextMonth" class="icon-button" type="button" aria-label="Next month">→</button>
+      </div>
+      <div class="actions">
+        <span id="saveState" class="save-state">No unsaved changes</span>
+        <button id="saveButton" class="primary" type="button">Save availability</button>
+        <button id="exportButton" class="secondary" type="button">Export data</button>
+        <label class="button secondary" for="importFile">Import data</label>
+        <input id="importFile" type="file" accept="application/json" hidden>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <article class="calendar-card card">
+        <div class="legend">
+          <span><i class="dot available"></i>Available</span>
+          <span><i class="dot na"></i>Not available (NA)</span>
+          <span><i class="dot weekday"></i>Weekday</span>
+        </div>
+        <div class="weekdays" aria-hidden="true">
+          <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+        </div>
+        <div id="calendar" class="calendar" aria-label="Weekend availability calendar"></div>
+        <p class="calendar-help">Only Saturdays and Sundays can be selected. Click a red date again to make it available.</p>
+      </article>
+
+      <aside class="team-card card">
+        <div class="section-heading">
+          <div><span>Responses</span><h2>Team availability</h2></div>
+          <strong id="responseCount">0 / 22</strong>
+        </div>
+        <div id="teamList" class="team-list"></div>
+      </aside>
+    </section>
+
+    <section class="roster-card card">
+      <div class="section-heading">
+        <div><span>Automation preview</span><h2>Draft weekend roster</h2></div>
+        <span id="rosterStatus" class="status pending">Pending cutoff</span>
+      </div>
+      <div id="rosterEmpty" class="empty-state">Choose NA dates above, then generate a draft. Saturdays need 4 engineers and Sundays need 3.</div>
+      <div id="rosterTableWrap" class="table-wrap" hidden>
+        <table>
+          <thead><tr><th>Date</th><th>Day</th><th>Required</th><th>Assigned engineers</th><th>Status</th></tr></thead>
+          <tbody id="rosterBody"></tbody>
+        </table>
+      </div>
+      <div id="warnings" class="warnings" hidden></div>
+    </section>
+    </div>
+
+    <section id="swapPanel" class="panel card form-card">
+      <div class="section-heading"><div><span>After the 1st of the roster month</span><h2>Request a shift swap</h2></div><span id="swapEligibility" class="status pending">Checking</span></div>
+      <p class="form-intro">Both employees must already be assigned to the selected dates. An admin must approve before the published roster changes.</p>
+      <div class="form-grid">
+        <label>Your name<select id="swapRequester"></select></label>
+        <label>Your assigned date<select id="swapFromDate"></select></label>
+        <label>Swap with<select id="swapColleague"></select></label>
+        <label>Their assigned date<select id="swapToDate"></select></label>
+        <label class="full">Reason<textarea id="swapReason" rows="3" placeholder="Optional reason for the admin"></textarea></label>
+      </div>
+      <button id="submitSwap" class="primary" type="button">Send request to admin</button>
+      <p id="swapMessage" class="inline-message"></p>
+      <div class="section-heading lower"><div><span>Tracking</span><h2>Swap requests</h2></div></div>
+      <div id="swapRequestList" class="request-list"></div>
+    </section>
+
+    <section id="adminPanel" class="panel card form-card">
+      <div class="section-heading"><div><span>Restricted in production</span><h2>Admin controls</h2></div><span class="status warning">Prototype access</span></div>
+      <div class="admin-toolbar">
+        <label>Admin name<input id="adminName" placeholder="Required for audit history"></label>
+        <button id="generateButton" class="primary" type="button">Generate / regenerate roster</button>
+        <button id="finalizeButton" class="secondary" type="button">Finalize month</button>
+        <button id="downloadAudit" class="secondary" type="button">Download audit log</button>
+      </div>
+      <h3>Pending approvals</h3>
+      <div id="adminRequests" class="request-list"></div>
+      <h3>Pending account mappings</h3>
+      <div id="mappingRequests" class="request-list"></div>
+      <h3>Change history</h3>
+      <div class="table-wrap"><table><thead><tr><th>When</th><th>Administrator</th><th>Action</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+    </section>
+  </main>
+
+  <footer>Prototype · Availability is stored in this browser until exported or connected to a shared database.</footer>
+  <script src="config.js?v=3"></script>
+  <script src="backend.js?v=3"></script>
+  <script src="roster-engine.js?v=3"></script>
+  <script src="app.js?v=3"></script>
+</body>
+</html>
