@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#163a70">
   <title>Weekend Shift Roster</title>
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
   <header class="topbar">
@@ -84,39 +84,22 @@
         <div class="legend">
           <span><i class="dot available"></i>Available</span>
           <span><i class="dot na"></i>Not available (NA)</span>
+          <span><i class="dot assigned"></i>Assigned shift</span>
           <span><i class="dot weekday"></i>Weekday</span>
         </div>
         <div class="weekdays" aria-hidden="true">
           <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
         </div>
         <div id="calendar" class="calendar" aria-label="Weekend availability calendar"></div>
-        <p class="calendar-help">Only Saturdays and Sundays can be selected. Click a red date again to make it available.</p>
-        <div class="na-overview-wrap">
-          <div class="section-heading"><div><span>Before you submit</span><h2>NA by weekend date</h2></div></div>
-          <div id="naOverview" class="na-overview"></div>
-        </div>
+        <div id="rosterSummary" class="roster-summary" aria-live="polite"></div>
+        <div id="warnings" class="warnings" hidden></div>
       </article>
-    </section>
-
-    <section class="roster-card card">
-      <div class="section-heading">
-        <div><span>Automation preview</span><h2>Draft weekend roster</h2></div>
-        <span id="rosterStatus" class="status pending">Pending cutoff</span>
-      </div>
-      <div id="rosterEmpty" class="empty-state">Choose NA dates above, then generate a draft. Saturdays need 4 engineers and Sundays need 3.</div>
-      <div id="rosterTableWrap" class="table-wrap" hidden>
-        <table>
-          <thead><tr><th>Date</th><th>Day</th><th>Required</th><th>Assigned engineers</th><th>Status</th></tr></thead>
-          <tbody id="rosterBody"></tbody>
-        </table>
-      </div>
-      <div id="warnings" class="warnings" hidden></div>
     </section>
     </div>
 
     <section id="swapPanel" class="panel card form-card">
       <div class="section-heading"><div><span>After the 1st of the roster month</span><h2>Request a shift swap</h2></div><span id="swapEligibility" class="status pending">Checking</span></div>
-      <p class="form-intro">Both employees must already be assigned to the selected dates. An admin must approve before the published roster changes.</p>
+      <p class="form-intro">Requester submits first, the selected colleague approves next, and an admin gives final approval before the roster changes.</p>
       <div class="form-grid">
         <label>Your name<select id="swapRequester"></select></label>
         <label>Your assigned date<select id="swapFromDate"></select></label>
@@ -124,26 +107,38 @@
         <label>Their assigned date<select id="swapToDate"></select></label>
         <label class="full">Reason<textarea id="swapReason" rows="3" placeholder="Optional reason for the admin"></textarea></label>
       </div>
-      <button id="submitSwap" class="primary" type="button">Send request to admin</button>
+      <button id="submitSwap" class="primary" type="button">Send request to colleague</button>
       <p id="swapMessage" class="inline-message"></p>
       <div class="section-heading lower"><div><span>Tracking</span><h2>Swap requests</h2></div></div>
       <div id="swapRequestList" class="request-list"></div>
     </section>
 
     <section id="adminPanel" class="panel card form-card">
-      <div class="section-heading"><div><span>Restricted in production</span><h2>Admin controls</h2></div><span class="status warning">Prototype access</span></div>
-      <div class="admin-toolbar">
-        <label>Admin name<input id="adminName" placeholder="Required for audit history"></label>
-        <button id="generateButton" class="primary" type="button">Generate / regenerate roster</button>
-        <button id="finalizeButton" class="secondary" type="button">Finalize month</button>
-        <button id="downloadAudit" class="secondary" type="button">Download audit log</button>
+      <div class="section-heading"><div><span>Admin access</span><h2>Restricted controls</h2></div><span id="adminAccessStatus" class="status pending">Locked</span></div>
+      <p class="form-intro">Enter your admin name and unique admin code. Every unlock and admin action is added to change history.</p>
+      <div id="adminGate" class="admin-gate">
+        <label>Admin name<select id="adminName"></select></label>
+        <label>Admin code<input id="adminCode" type="password" autocomplete="off" placeholder="Enter your unique code"></label>
+        <button id="unlockAdmin" class="primary" type="button">Unlock admin controls</button>
+        <p id="adminAccessMessage" class="inline-message"></p>
       </div>
-      <h3>Pending approvals</h3>
-      <div id="adminRequests" class="request-list"></div>
-      <h3>Pending account mappings</h3>
-      <div id="mappingRequests" class="request-list"></div>
-      <h3>Change history</h3>
-      <div class="table-wrap"><table><thead><tr><th>When</th><th>Administrator</th><th>Action</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+      <div id="adminControls" hidden>
+        <div class="admin-session">
+          <span id="adminSessionText">No admin unlocked</span>
+          <button id="lockAdmin" class="secondary" type="button">Lock admin controls</button>
+        </div>
+        <div class="admin-toolbar">
+          <button id="generateButton" class="primary" type="button">Generate / regenerate roster</button>
+          <button id="finalizeButton" class="secondary" type="button">Finalize month</button>
+          <button id="downloadAudit" class="secondary" type="button">Download audit log</button>
+        </div>
+        <h3>Pending approvals</h3>
+        <div id="adminRequests" class="request-list"></div>
+        <h3>Pending account mappings</h3>
+        <div id="mappingRequests" class="request-list"></div>
+        <h3>Change history</h3>
+        <div class="table-wrap"><table><thead><tr><th>When</th><th>Administrator</th><th>Action</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+      </div>
     </section>
   </main>
 
@@ -153,7 +148,7 @@
       ["EMP001", "Sanya Sachdeva"], ["EMP002", "Aarushi Garg"], ["EMP003", "Anmol Singh"],
       ["EMP004", "Charan Sai Kumar Reddy Gondesi"], ["EMP005", "Goutham Reddy Akula"],
       ["EMP006", "Hariprasad Natarajan"], ["EMP007", "Harish Kumar Thirumurugasakthivel"],
-      ["EMP008", "Kishan Ravindranath"], ["EMP009", "Lakshmi R"], ["EMP010", "Naveen Kumar M"],
+      ["EMP008", "Kishan Ravindranath"], ["EMP010", "Naveen Kumar M"],
       ["EMP011", "Phiravin Arulmozhi"], ["EMP012", "Prabu N"], ["EMP013", "Rakshith L"],
       ["EMP014", "Renjith Gopalakrishna Pillai"], ["EMP015", "Sai Amrutha"], ["EMP016", "Shreya Jain"],
       ["EMP017", "Simran Vyas"], ["EMP018", "Sri Pavan Gurajala"], ["EMP019", "Sunil Tiwari"],
@@ -161,9 +156,9 @@
       ["EMP022", "Yokeswaran Yohadhandan"]
     ];
   </script>
-  <script src="config.js?v=5"></script>
-  <script src="backend.js?v=5"></script>
-  <script src="roster-engine.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+  <script src="config.js?v=9"></script>
+  <script src="backend.js?v=9"></script>
+  <script src="roster-engine.js?v=9"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

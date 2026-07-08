@@ -42,6 +42,7 @@
     async saveRoster(month, roster) { return rpc("save_roster", { p_month: month, p_roster: roster }); },
     async finalizeRoster(month) { return rpc("finalize_roster", { p_month: month }); },
     async requestSwap(request) { return rpc("create_swap_request", { p_request: request }); },
+    async decideColleagueSwap(requestId, approved) { return rpc("decide_colleague_swap_request", { p_request_id: requestId, p_approved: approved }); },
     async revokeSwap(requestId) { return rpc("revoke_swap_request", { p_request_id: requestId }); },
     async decideSwap(requestId, approved) { return rpc("decide_swap_request", { p_request_id: requestId, p_approved: approved }); },
   };

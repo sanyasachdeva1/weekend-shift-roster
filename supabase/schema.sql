@@ -57,8 +57,9 @@ create table if not exists public.swap_requests (
   from_date date not null,
   to_date date not null,
   reason text,
-  status text not null default 'pending' check(status in ('pending','approved','rejected','revoked')),
+  status text not null default 'awaiting-colleague' check(status in ('awaiting-colleague','colleague-approved','approved','rejected','revoked')),
   decided_by uuid references public.profiles(user_id),
+  colleague_decided_at timestamptz,
   created_at timestamptz not null default now(),
   decided_at timestamptz
 );
@@ -79,6 +80,15 @@ create or replace function public.is_admin() returns boolean language sql stable
 $$;
 create or replace function public.current_member() returns public.team_members language sql stable security definer set search_path=public as $$
   select t from team_members t join profiles p on p.user_id=t.user_id where p.user_id=auth.uid() and p.active and t.active;
+$$;
+create or replace function public.has_weekend_conflict(p_roster jsonb,p_code text,p_candidate date,p_excluded date default null) returns boolean language sql immutable as $$
+  select exists(
+    select 1 from jsonb_array_elements(p_roster->'assignments') item
+    where (item->>'date')::date is distinct from p_excluded and (item->'assigned') ? p_code and (
+      ((item->>'date')::date - case when extract(dow from (item->>'date')::date)=0 then 1 else 0 end) = (p_candidate - case when extract(dow from p_candidate)=0 then 1 else 0 end)
+      or (extract(dow from (item->>'date')::date)=6 and extract(dow from p_candidate)=6 and abs((item->>'date')::date-p_candidate)=7)
+    )
+  );
 $$;
 create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$
 begin insert into profiles(user_id) values(new.id) on conflict do nothing; return new; end $$;
@@ -161,16 +171,26 @@ declare member team_members; request_id uuid;
 begin
   member:=current_member();
   if member.id is null or member.employee_code<>p_request->>'requester' then raise exception 'Requester does not match login'; end if;
-  insert into swap_requests(id,requester_id,colleague_code,from_date,to_date,reason)
-  values((p_request->>'id')::uuid,member.id,p_request->>'colleague',(p_request->>'fromDate')::date,(p_request->>'toDate')::date,p_request->>'reason') returning id into request_id;
+  insert into swap_requests(id,requester_id,colleague_code,from_date,to_date,reason,status)
+  values((p_request->>'id')::uuid,member.id,p_request->>'colleague',(p_request->>'fromDate')::date,(p_request->>'toDate')::date,p_request->>'reason','awaiting-colleague') returning id into request_id;
   insert into audit_log(actor_id,actor_code,actor_name,action,details,after_data)
   values(auth.uid(),member.employee_code,member.full_name,'SWAP_REQUESTED','Swap request created',p_request);
   return request_id;
 end $$;
+create or replace function public.decide_colleague_swap_request(p_request_id uuid,p_approved boolean) returns void language plpgsql security definer set search_path=public as $$
+declare member team_members; req swap_requests;
+begin
+  member:=current_member();
+  select * into req from swap_requests where id=p_request_id and colleague_code=member.employee_code and status='awaiting-colleague' for update;
+  if req.id is null then raise exception 'Colleague approval request not found'; end if;
+  update swap_requests set status=case when p_approved then 'colleague-approved' else 'rejected' end,colleague_decided_at=now() where id=req.id;
+  insert into audit_log(actor_id,actor_code,actor_name,action,details,before_data,after_data)
+  values(auth.uid(),member.employee_code,member.full_name,case when p_approved then 'SWAP_COLLEAGUE_APPROVED' else 'SWAP_COLLEAGUE_REJECTED' end,'Colleague swap decision',to_jsonb(req),jsonb_build_object('approved',p_approved));
+end $$;
 create or replace function public.revoke_swap_request(p_request_id uuid) returns void language plpgsql security definer set search_path=public as $$
 declare member team_members; req swap_requests; roster_row rosters; requester_code text; prior jsonb; assignments jsonb:='[]'; item jsonb; assigned jsonb; source_assigned jsonb; destination_assigned jsonb;
 begin
-  member:=current_member(); select * into req from swap_requests where id=p_request_id and requester_id=member.id and status in ('pending','approved') for update;
+  member:=current_member(); select * into req from swap_requests where id=p_request_id and requester_id=member.id and status in ('awaiting-colleague','colleague-approved','approved') for update;
   if req.id is null then raise exception 'Revocable swap not found'; end if;
   if req.status='approved' then
     select * into roster_row from rosters where roster_month=date_trunc('month',req.from_date)::date for update;
@@ -178,6 +198,7 @@ begin
     select value->'assigned' into source_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.from_date::text;
     select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
     if not (source_assigned ? req.colleague_code) or not (destination_assigned ? requester_code) or source_assigned ? requester_code or destination_assigned ? req.colleague_code then raise exception 'Roster changed; approved swap cannot be safely reversed'; end if;
+    if has_weekend_conflict(roster_row.roster,requester_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,req.colleague_code,req.to_date,req.from_date) then raise exception 'Reversal creates a weekend-spacing conflict'; end if;
     for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
       assigned:=item->'assigned';
       if (item->>'date')::date=req.from_date then assigned:=(select jsonb_agg(case when value#>>'{}'=req.colleague_code then to_jsonb(requester_code) else value end) from jsonb_array_elements(assigned)); end if;
@@ -195,7 +216,7 @@ declare admin_profile profiles; admin_member team_members; req swap_requests; ro
 begin
   if not is_admin() then raise exception 'Admin access required'; end if;
   select * into admin_profile from profiles where user_id=auth.uid(); admin_member:=current_member();
-  select * into req from swap_requests where id=p_request_id and status='pending' for update;
+  select * into req from swap_requests where id=p_request_id and status='colleague-approved' for update;
   if req.id is null then raise exception 'Pending request not found'; end if;
   select employee_code into requester_code from team_members where id=req.requester_id;
   if not p_approved then
@@ -209,6 +230,7 @@ begin
   select id into colleague_id from team_members where employee_code=req.colleague_code;
   if source_assigned ? req.colleague_code or destination_assigned ? requester_code then raise exception 'Employee already assigned on destination date'; end if;
   if exists(select 1 from availability where employee_id=colleague_id and na_date=req.from_date) or exists(select 1 from availability where employee_id=req.requester_id and na_date=req.to_date) then raise exception 'Swap conflicts with submitted NA'; end if;
+  if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,requester_code,req.to_date,req.from_date) then raise exception 'Swap creates a weekend-spacing conflict'; end if;
   for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
     assigned:=item->'assigned';
     if (item->>'date')::date=req.from_date then assigned:=(select jsonb_agg(case when value#>>'{}'=requester_code then to_jsonb(req.colleague_code) else value end) from jsonb_array_elements(assigned)); end if;
@@ -238,7 +260,7 @@ alter table profiles enable row level security; alter table team_members enable 
 alter table availability enable row level security; alter table submissions enable row level security; alter table rosters enable row level security;
 alter table swap_requests enable row level security; alter table audit_log enable row level security;
 revoke all on all tables in schema public from anon,authenticated;
-grant execute on function my_profile(),request_identity_mapping(text,text),get_mapping_requests(),decide_identity_mapping(uuid,boolean),get_roster_state(),save_my_availability(text,text,text[]),save_roster(text,jsonb),finalize_roster(text),create_swap_request(jsonb),revoke_swap_request(uuid),decide_swap_request(uuid,boolean) to authenticated;
+grant execute on function my_profile(),request_identity_mapping(text,text),get_mapping_requests(),decide_identity_mapping(uuid,boolean),get_roster_state(),save_my_availability(text,text,text[]),save_roster(text,jsonb),finalize_roster(text),create_swap_request(jsonb),decide_colleague_swap_request(uuid,boolean),revoke_swap_request(uuid),decide_swap_request(uuid,boolean) to authenticated;
 
 -- Bootstrap the first administrator after their first Google login using the auth user UUID:
 -- update profiles set role='admin' where user_id='<auth-user-uuid>';

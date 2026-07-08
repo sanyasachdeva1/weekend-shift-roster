@@ -1,6 +1,15 @@
 (function (root) {
   const keyOf = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   const monthOf = (date) => keyOf(date).slice(0, 7);
+  const parse = (key) => new Date(`${key}T12:00:00`);
+  const weekendStart = (key) => { const date = parse(key); if (date.getDay() === 0) date.setDate(date.getDate() - 1); return keyOf(date); };
+  function hasScheduleConflict(assignments, code, candidateDate, excludedDate = null) {
+    const candidate = parse(candidateDate);
+    return assignments.some((row) => row.date !== excludedDate && row.assigned.includes(code) && (
+      weekendStart(row.date) === weekendStart(candidateDate)
+      || (candidate.getDay() === 6 && parse(row.date).getDay() === 6 && Math.abs(candidate - parse(row.date)) === 7 * 86400000)
+    ));
+  }
 
   function generate({ people, monthDate, availability, submissions, rosters }) {
     const month = monthOf(monthDate);
@@ -26,9 +35,9 @@
         || a.localeCompare(b);
     });
     for (const code of coverageOrder) {
-      let choices = assignments.filter((row) => row.assigned.length < row.required && !availability[code]?.[month]?.[row.date]);
+      let choices = assignments.filter((row) => row.assigned.length < row.required && !availability[code]?.[month]?.[row.date] && !hasScheduleConflict(assignments, code, row.date));
       let overridden = false;
-      if (!choices.length) { choices = assignments.filter((row) => row.assigned.length < row.required); overridden = true; }
+      if (!choices.length) { choices = assignments.filter((row) => row.assigned.length < row.required && !hasScheduleConflict(assignments, code, row.date)); overridden = true; }
       choices.sort((a, b) => (a.assigned.length / a.required) - (b.assigned.length / b.required) || a.date.localeCompare(b.date));
       const row = choices[0];
       if (!row) { warnings.push(`${code}: no monthly coverage slot available`); continue; }
@@ -44,10 +53,10 @@
         || (monthlyLoad[a] >= targetLoad[a] ? 1 : 0) - (monthlyLoad[b] >= targetLoad[b] ? 1 : 0)
         || (monthlyLoad[a] / targetLoad[a]) - (monthlyLoad[b] / targetLoad[b])
         || previousLoad[b] - previousLoad[a] || a.localeCompare(b);
-      const candidates = people.filter((code) => !row.assigned.includes(code) && !availability[code]?.[month]?.[row.date]).sort(fairnessSort);
+      const candidates = people.filter((code) => !row.assigned.includes(code) && !availability[code]?.[month]?.[row.date] && !hasScheduleConflict(assignments, code, row.date)).sort(fairnessSort);
       for (const code of candidates.slice(0, row.required - row.assigned.length)) { row.assigned.push(code); monthlyLoad[code] += 1; }
       if (row.assigned.length < row.required) {
-        const unavailable = people.filter((code) => availability[code]?.[month]?.[row.date] && !row.assigned.includes(code));
+        const unavailable = people.filter((code) => availability[code]?.[month]?.[row.date] && !row.assigned.includes(code) && !hasScheduleConflict(assignments, code, row.date));
         unavailable.sort((a, b) => new Date(submissions[b]?.[month]?.savedAt || 0) - new Date(submissions[a]?.[month]?.savedAt || 0) || fairnessSort(a, b));
         for (const code of unavailable.slice(0, row.required - row.assigned.length)) {
           row.assigned.push(code); monthlyLoad[code] += 1;
@@ -60,5 +69,5 @@
     }
     return { assignments, warnings, previousLoad, targetLoad, monthlyLoad };
   }
-  root.RosterEngine = { generate };
+  root.RosterEngine = { generate, hasScheduleConflict };
 })(globalThis);
