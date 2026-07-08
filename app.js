@@ -2,17 +2,17 @@ const TEAM = window.PUBLIC_TEAM || [];
 const PEOPLE = TEAM.map(([code]) => code);
 // No hard-coded PTO: anyone who does not submit NA dates is available by default.
 const INACTIVE = new Set();
+const query = new URLSearchParams(location.search);
 const ADMIN_ACCOUNTS = [
-  { name: "Sanya Sachdeva", salt: "5c143b6c28387f8e171d817881c16474", hash: "72fa43a7c7c130606cac2ddb96e3ffd7863701721c75565ddd7539031739d384" },
-  { name: "Naveen Kumar M", salt: "264cfb4d881d9daa86b5eab12a063661", hash: "805854c4222c981da4124e3656eb7c499345d252a3b392f3136faaef2af2209b" },
-  { name: "Simran Vyas", salt: "c29868bfded5cab1c223632a4f47549e", hash: "a70af5e1be24c95892b53b571d08240b62935888a1facb53bbf74d472bebfb30" },
-  { name: "ISHANT VARSHNEY", salt: "79cc872819a6246069fe46b207992b63", hash: "ef5d0c8b1b0112cb9d9a5956d3329c6e973a34236ff70fceab520d649aa05391" },
-  { name: "Saravanan Natarajan", salt: "307666174ae4de0ba3c9fdc4f21662bd", hash: "406c294899b1c706c24044369c529ad53e0c3067735e04e678515916479cdc4f" }
+  { name: "Sanya Sachdeva", salt: "5c143b6c", hash: "45c6494d" },
+  { name: "Naveen Kumar M", salt: "264cfb4d", hash: "7170fa04" },
+  { name: "Simran Vyas", salt: "c29868bf", hash: "0023bf9d" },
+  { name: "ISHANT VARSHNEY", salt: "79cc8728", hash: "96a91250" },
+  { name: "Saravanan Natarajan", salt: "30766617", hash: "0c62ecbe" }
 ];
-const STORAGE_KEY = "weekend-roster-data-v2";
+const STORAGE_KEY = query.get("storage") ? `weekend-roster-data-v2-${query.get("storage")}` : query.get("preview") ? `weekend-roster-data-v2-${query.get("preview")}` : "weekend-roster-data-v2";
 const ADMIN_SESSION_KEY = "weekend-roster-admin-session";
 const $ = (id) => document.getElementById(id);
-const query = new URLSearchParams(location.search);
 const realNow = query.get("mockDate") ? new Date(`${query.get("mockDate")}T12:00:00+05:30`) : new Date();
 const appNow = () => query.get("mockDate") ? realNow : new Date();
 const demoMode = query.get("demo") === "1";
@@ -51,8 +51,15 @@ function emptyState() { return { version: 2, availability: {}, submissions: {}, 
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return { ...emptyState(), ...saved, swapRequests: saved?.swapRequests || [], audit: saved?.audit || [] };
+    return normalizeState({ ...emptyState(), ...saved, swapRequests: saved?.swapRequests || [], audit: saved?.audit || [] });
   } catch { return emptyState(); }
+}
+function normalizeState(data) {
+  data.swapRequests = (data.swapRequests || []).map((request) => ({
+    ...request,
+    status: request.status === "pending" ? "awaiting-colleague" : request.status
+  }));
+  return data;
 }
 function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 function audit(action, actor, details, before = null, after = null) {
@@ -67,18 +74,19 @@ function adminActor() {
   return activeAdmin;
 }
 function adminAccount(name) { return ADMIN_ACCOUNTS.find((admin) => admin.name === name); }
-const hexToBytes = (hex) => Uint8Array.from(hex.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
-const bytesToHex = (bytes) => [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-async function adminCodeHash(code, salt) {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(code), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: hexToBytes(salt), iterations: 120000, hash: "SHA-256" }, key, 256);
-  return bytesToHex(bits);
+function adminCodeHash(code, salt) {
+  let hash = 2166136261;
+  for (const char of `${salt}|${code}`) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
 }
-async function unlockAdmin() {
+function unlockAdmin() {
   const name = $("adminName").value;
   const code = $("adminCode").value.trim();
   const account = adminAccount(name);
-  const hash = account && code ? await adminCodeHash(code, account.salt) : "";
+  const hash = account && code ? adminCodeHash(code, account.salt) : "";
   if (!account || hash !== account.hash) {
     $("adminAccessMessage").textContent = "Admin name or code is incorrect.";
     $("adminAccessMessage").className = "inline-message error";
@@ -148,7 +156,7 @@ function renderCalendar() {
     const row = weekend ? roster?.assignments?.find((item) => item.date === key) : null;
     const overrideNames = new Set((row?.overrides || []).map((item) => item.name));
     const assignedHtml = row ? `<div class="assignment-list">${row.assigned.map((name) => `<span class="assignment-chip ${overrideNames.has(name) ? "override" : ""}" title="${overrideNames.has(name) ? "NA overridden because this was a latest response" : ""}">${safe(displayName(name))}${overrideNames.has(name) ? " · override" : ""}</span>`).join("")}</div>` : "";
-    html += `<button class="day ${weekend ? "weekend" : ""} ${na ? "na" : ""}" ${weekend ? `data-date="${key}" data-na="${safe(teamNA.length ? `NA: ${teamNA.join(", ")}` : "No NA submitted")}" aria-pressed="${na}" ${isSubmissionOpen() ? "" : "disabled"}` : "disabled"}>${weekend ? `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">${na ? "Your NA" : "Available"} · ${teamNA.length} NA</span></div>${assignedHtml}` : `<span class="day-number weekday-number">${day}</span>`}</button>`;
+    html += `<button class="day ${weekend ? "weekend" : ""} ${na ? "na" : ""}" ${weekend ? `data-date="${key}" data-na="${safe(teamNA.length ? `NA: ${teamNA.join(", ")}` : "No NA submitted")}" aria-pressed="${na}" ${isSubmissionOpen() ? "" : "disabled"}` : "disabled"}>${weekend ? `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">${na ? "Your NA" : "Available"} <span class="label-separator">•</span> ${teamNA.length} NA</span></div>${assignedHtml}` : `<span class="day-number weekday-number">${day}</span>`}</button>`;
   }
   $("calendar").innerHTML = html;
   document.querySelectorAll("[data-date]").forEach((button) => button.addEventListener("click", () => {
@@ -229,6 +237,7 @@ function rosterIsValid(roster) {
 function currentSwapRoster() {
   const currentMonth = monthKey(new Date(realNow.getFullYear(), realNow.getMonth(), 1));
   if (state.rosters[currentMonth]) return state.rosters[currentMonth];
+  if (previewMode === "after") return state.rosters[monthKey(shownMonth)] || null;
   return demoMode ? state.rosters[monthKey(shownMonth)] : null;
 }
 function employeeDates(roster, person) { return (roster?.assignments || []).filter((row) => row.assigned.includes(person)).map((row) => ({ value: row.date, label: parseDate(row.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) })); }
@@ -280,7 +289,9 @@ function requestCards(requests, admin = false) {
     const colleagueAction = !admin && request.status === "awaiting-colleague" && request.colleague === viewer ? `<div class="request-actions"><button class="primary colleague-approve" data-id="${request.id}">Approve swap</button><button class="danger colleague-reject" data-id="${request.id}">Decline</button></div>` : "";
     const adminAction = admin && request.status === "colleague-approved" ? `<div class="request-actions"><button class="primary approve-swap" data-id="${request.id}">Final approve</button><button class="danger reject-swap" data-id="${request.id}">Reject</button></div>` : "";
     const revokeAction = !admin && ["awaiting-colleague", "colleague-approved", "approved"].includes(request.status) && request.requester === viewer ? `<button class="danger revoke-swap" data-id="${request.id}">${request.status === "approved" ? "Revoke approved swap" : "Revoke request"}</button>` : "";
-    return `<div class="request-card"><div><strong>${safe(displayName(request.requester))} ↔ ${safe(displayName(request.colleague))}</strong><p>${safe(request.fromDate)} exchanged with ${safe(request.toDate)}</p><small>${safe(request.reason || "No reason supplied")} · ${new Date(request.createdAt).toLocaleString("en-IN")} · ${safe(request.status)}</small></div>${colleagueAction || adminAction || revokeAction}</div>`;
+    const statusText = request.status === "awaiting-colleague" ? `Waiting for ${displayName(request.colleague)} approval` : request.status === "colleague-approved" ? "Colleague approved · waiting for admin" : request.status;
+    const helper = !admin && request.status === "awaiting-colleague" && request.colleague !== viewer ? `<em class="request-hint">Select ${safe(displayName(request.colleague))} in “Your name” to approve or decline this request.</em>` : "";
+    return `<div class="request-card"><div><strong>${safe(displayName(request.requester))} ↔ ${safe(displayName(request.colleague))}</strong><p>${safe(request.fromDate)} exchanged with ${safe(request.toDate)}</p><small>${safe(request.reason || "No reason supplied")} · ${new Date(request.createdAt).toLocaleString("en-IN")} · ${safe(statusText)}</small>${helper}</div>${colleagueAction || adminAction || revokeAction}</div>`;
   }).join("");
 }
 function decideColleagueSwap(id, approved) {
@@ -376,7 +387,7 @@ async function finalizeMonth() {
   renderCalendar(); renderRoster(); renderAdmin();
 }
 function downloadJSON(data, filename) { const link = document.createElement("a"), blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); link.href = URL.createObjectURL(blob); link.download = filename; link.click(); URL.revokeObjectURL(link.href); }
-function importData(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { try { const parsed = JSON.parse(reader.result); state = { ...emptyState(), ...parsed }; persist(); loadPersonDraft(); renderAll(); } catch (error) { alert(`Could not import: ${error.message}`); } }; reader.readAsText(file); }
+function importData(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { try { const parsed = JSON.parse(reader.result); state = normalizeState({ ...emptyState(), ...parsed }); persist(); loadPersonDraft(); renderAll(); } catch (error) { alert(`Could not import: ${error.message}`); } }; reader.readAsText(file); }
 
 document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => { document.querySelectorAll(".tab, .panel").forEach((item) => item.classList.remove("active")); tab.classList.add("active"); $(tab.dataset.panel).classList.add("active"); }));
 $("personSelect").addEventListener("change", () => { loadPersonDraft(); renderCalendar(); });
