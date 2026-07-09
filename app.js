@@ -156,7 +156,10 @@ function renderCalendar() {
     const row = weekend ? roster?.assignments?.find((item) => item.date === key) : null;
     const overrideNames = new Set((row?.overrides || []).map((item) => item.name));
     const assignedHtml = row ? `<div class="assignment-list">${row.assigned.map((name) => `<span class="assignment-chip ${overrideNames.has(name) ? "override" : ""}" title="${overrideNames.has(name) ? "NA overridden because this was a latest response" : ""}">${safe(displayName(name))}${overrideNames.has(name) ? " · override" : ""}</span>`).join("")}</div>` : "";
-    html += `<button class="day ${weekend ? "weekend" : ""} ${na ? "na" : ""}" ${weekend ? `data-date="${key}" data-na="${safe(teamNA.length ? `NA: ${teamNA.join(", ")}` : "No NA submitted")}" aria-pressed="${na}" ${isSubmissionOpen() ? "" : "disabled"}` : "disabled"}>${weekend ? `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">${na ? "Your NA" : "Available"} <span class="label-separator">•</span> ${teamNA.length} NA</span></div>${assignedHtml}` : `<span class="day-number weekday-number">${day}</span>`}</button>`;
+    const weekendHeader = row
+      ? `<div class="day-top roster-day-top"><span class="day-number">${day}</span></div>`
+      : `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">${na ? "Your NA" : "Available"} <span class="label-separator">•</span> ${teamNA.length} NA</span></div>`;
+    html += `<button class="day ${weekend ? "weekend" : ""} ${na ? "na" : ""}" ${weekend ? `data-date="${key}" data-na="${safe(teamNA.length ? `NA: ${teamNA.join(", ")}` : "No NA submitted")}" aria-pressed="${na}" ${isSubmissionOpen() ? "" : "disabled"}` : "disabled"}>${weekend ? `${weekendHeader}${assignedHtml}` : `<span class="day-number weekday-number">${day}</span>`}</button>`;
   }
   $("calendar").innerHTML = html;
   document.querySelectorAll("[data-date]").forEach((button) => button.addEventListener("click", () => {

@@ -2,6 +2,12 @@
 
 A laptop-first static prototype for collecting weekend unavailability (NA) and generating a fair draft roster.
 
+## Live mock-up
+
+- Website: https://sanyasachdeva1.github.io/weekend-shift-roster/
+- Before cutoff demo: https://sanyasachdeva1.github.io/weekend-shift-roster/?mockDate=2026-07-20&preview=before&storage=team-demo-before
+- After roster generated demo: https://sanyasachdeva1.github.io/weekend-shift-roster/?mockDate=2026-07-29&preview=after&storage=team-demo-after
+
 ## Run locally
 
 Open `index.html` directly, or serve the folder:
