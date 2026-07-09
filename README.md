@@ -22,7 +22,7 @@ Then visit `http://localhost:8000`.
 
 - Opens on next month and shows real date/time in Asia/Kolkata.
 - Each team member can mark weekend dates red (NA) and explicitly save their response.
-- Availability is editable only from the 15th through the 28th for the following month.
+- Availability is editable only from 15th 12:00 AM IST until 29th 12:00 AM IST for the following month.
 - After cutoff, the scheduler can automatically generate the next roster.
 - Saves data in that browser with `localStorage`.
 - Imports/exports JSON snapshots for backup or committing to GitHub.
@@ -40,7 +40,7 @@ For local testing outside the submission window, open `http://localhost:8000/?de
 
 ## Hosting and shared data
 
-GitHub Pages can host the static site for free. It cannot securely write user submissions back into the repository by itself. For a multi-user production version, use GitHub Pages for the UI plus a shared datastore (Supabase is a good fit), authentication, role-based admin access, database row-level security and an immutable audit table. A scheduled server job should freeze submissions and generate the roster after the 28th. Monthly finalized JSON and audit exports may also be committed under `data/history/` as secondary archives.
+GitHub Pages can host the static site for free. It cannot securely write user submissions back into the repository by itself. For a multi-user production version, use GitHub Pages for the UI plus a shared datastore (Supabase is a good fit), authentication, role-based admin access, database row-level security and an immutable audit table. A scheduled server job should freeze submissions and generate the roster at 29th 12:00 AM IST. Monthly finalized JSON and audit exports may also be committed under `data/history/` as secondary archives.
 
 Do not put a GitHub personal access token in browser JavaScript. It would be visible to every visitor.
 
@@ -53,7 +53,7 @@ Do not put a GitHub personal access token in browser JavaScript. It would be vis
 5. Create a GitHub repository, enable Pages from the default branch, and add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
 6. The included workflow runs monthly and commits finalized roster plus audit history into `data/history/YYYY-MM.json`. The service-role key stays only in GitHub Actions secrets.
 
-The database—not the visitor's laptop—enforces that submissions are accepted only from the 15th through 28th for the following month. Row-level security prevents employees from saving another person's availability or using admin operations.
+The database—not the visitor's laptop—enforces that submissions are accepted only from 15th 12:00 AM IST until 29th 12:00 AM IST for the following month. Row-level security prevents employees from saving another person's availability or using admin operations.
 
 ### Identity and change tracking
 

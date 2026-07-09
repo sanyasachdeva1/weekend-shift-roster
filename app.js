@@ -130,9 +130,9 @@ function renderWindow() {
   $("windowNotice").classList.toggle("closed", !open);
   $("windowTitle").textContent = open ? "Availability collection is open" : "Availability collection is closed";
   $("windowMessage").textContent = open
-    ? `Submit and save NA dates for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })} before the 28th ends.`
-    : `The next-month form opens on the 15th of every month and closes at 29th 12:00 AM IST. After that, calendar changes are locked. ${demoMode ? "Demo override is active." : ""}`;
-  $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes after 28th" : "Closed";
+    ? `Submit and save NA dates for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}. The window closes at 29th 12:00 AM IST.`
+    : `The next-month form opens at 15th 12:00 AM IST every month and closes at 29th 12:00 AM IST. After that, calendar changes are locked. ${demoMode ? "Demo override is active." : ""}`;
+  $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 29th 12 AM" : "Closed";
   $("saveButton").disabled = !open || !dirty;
 }
 function updateSaveState() {
