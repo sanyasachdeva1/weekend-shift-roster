@@ -119,7 +119,7 @@ function renderWindow() {
   $("windowTitle").textContent = open ? "Availability collection is open" : "Availability collection is closed";
   $("windowMessage").textContent = open
     ? `Submit and save NA dates for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })} before the 28th ends.`
-    : `The next-month form opens on the 15th and closes at 29th 12:00 AM IST, after the 28th ends. ${demoMode ? "Demo override is active." : "Calendar changes are locked."}`;
+    : `The next-month form opens on the 15th of every month and closes at 29th 12:00 AM IST. After that, calendar changes are locked. ${demoMode ? "Demo override is active." : ""}`;
   $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes after 28th" : "Closed";
   $("saveButton").disabled = !open || !dirty;
 }
