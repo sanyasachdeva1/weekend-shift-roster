@@ -10,7 +10,7 @@ const ADMIN_ACCOUNTS = [
   { name: "ISHANT VARSHNEY", salt: "79cc8728", hash: "96a91250" },
   { name: "Saravanan Natarajan", salt: "30766617", hash: "0c62ecbe" }
 ];
-const STORAGE_KEY = query.get("storage") ? `weekend-roster-data-v2-${query.get("storage")}` : query.get("preview") ? `weekend-roster-data-v2-${query.get("preview")}` : "weekend-roster-data-v2";
+const STORAGE_KEY = query.get("storage") ? `weekend-roster-data-v3-${query.get("storage")}` : query.get("preview") ? `weekend-roster-data-v3-${query.get("preview")}` : "weekend-roster-data-v3";
 const ADMIN_SESSION_KEY = "weekend-roster-admin-session";
 const $ = (id) => document.getElementById(id);
 const realNow = query.get("mockDate") ? new Date(`${query.get("mockDate")}T12:00:00+05:30`) : new Date();
