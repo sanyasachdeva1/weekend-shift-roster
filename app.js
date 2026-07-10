@@ -12,6 +12,8 @@ const ADMIN_ACCOUNTS = [
 ];
 const STORAGE_KEY = query.get("storage") ? `weekend-roster-data-v3-${query.get("storage")}` : query.get("preview") ? `weekend-roster-data-v3-${query.get("preview")}` : "weekend-roster-data-v3";
 const ADMIN_SESSION_KEY = "weekend-roster-admin-session";
+const SUBMISSION_OPEN_MINUTE = ((15 - 1) * 24 * 60) + (11 * 60);
+const SUBMISSION_CUTOFF_MINUTE = ((28 - 1) * 24 * 60) + (19 * 60);
 const $ = (id) => document.getElementById(id);
 const realNow = query.get("mockDate") ? new Date(`${query.get("mockDate")}T12:00:00+05:30`) : new Date();
 const appNow = () => query.get("mockDate") ? realNow : new Date();
@@ -45,8 +47,12 @@ function nextRosterMonthKey() {
   const parts = istNowParts(appNow());
   return monthKey(new Date(parts.year, parts.month, 1));
 }
-const isCutoffPassed = () => istNowParts(appNow()).day >= 29;
-const isSubmissionOpen = () => demoMode || (istNowParts(appNow()).day >= 15 && istNowParts(appNow()).day <= 28 && monthKey(shownMonth) === nextRosterMonthKey());
+const monthMinute = (parts) => ((parts.day - 1) * 24 * 60) + (parts.hour * 60) + parts.minute;
+const isCutoffPassed = () => monthMinute(istNowParts(appNow())) >= SUBMISSION_CUTOFF_MINUTE;
+const isSubmissionOpen = () => {
+  const minute = monthMinute(istNowParts(appNow()));
+  return demoMode || (minute >= SUBMISSION_OPEN_MINUTE && minute < SUBMISSION_CUTOFF_MINUTE && monthKey(shownMonth) === nextRosterMonthKey());
+};
 
 function emptyState() { return { version: 2, availability: {}, submissions: {}, rosters: {}, swapRequests: [], audit: [] }; }
 function loadState() {
@@ -130,9 +136,9 @@ function renderWindow() {
   $("windowNotice").classList.toggle("closed", !open);
   $("windowTitle").textContent = open ? "Availability collection is open" : "Availability collection is closed";
   $("windowMessage").textContent = open
-    ? `Submit and save NA dates for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}. The window closes at 29th 12:00 AM IST.`
-    : `The next-month form opens at 15th 12:00 AM IST every month and closes at 29th 12:00 AM IST. After that, calendar changes are locked. ${demoMode ? "Demo override is active." : ""}`;
-  $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 29th 12 AM" : "Closed";
+    ? `Submit and save NA dates for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}. The window closes at 28th 7:00 PM IST.`
+    : `The next-month form opens at 15th 11:00 AM IST every month and closes at 28th 7:00 PM IST. After that, calendar changes are locked. ${demoMode ? "Demo override is active." : ""}`;
+  $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 28th 7 PM" : "Closed";
   $("saveButton").disabled = !open || !dirty;
 }
 function updateSaveState() {
@@ -276,13 +282,12 @@ function isNAOn(person, date) { return Boolean(state.availability[person]?.[date
 function eligibleSwapColleagues(roster, requester, fromDate) {
   const sourceRow = roster?.assignments.find((row) => row.date === fromDate);
   if (!sourceRow) return [];
-  return PEOPLE.filter((person) => person !== requester && !sourceRow.assigned.includes(person) && !isNAOn(person, fromDate) && eligibleSwapDates(roster, requester, person, fromDate).length);
+  return PEOPLE.filter((person) => person !== requester && !sourceRow.assigned.includes(person) && eligibleSwapDates(roster, requester, person, fromDate).length);
 }
 function eligibleSwapDates(roster, requester, colleague, fromDate) {
   return (roster?.assignments || []).filter((row) => row.date !== fromDate
     && row.assigned.includes(colleague)
     && !row.assigned.includes(requester)
-    && !isNAOn(requester, row.date)
     && !RosterEngine.hasScheduleConflict(roster.assignments, colleague, fromDate, row.date)
     && !RosterEngine.hasScheduleConflict(roster.assignments, requester, row.date, fromDate)
   ).map((row) => ({ value: row.date, label: parseDate(row.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) }));
@@ -447,7 +452,50 @@ async function finalizeMonth() {
   audit("ROSTER_FINALIZED", admin, `${month} finalized for monthly archive`, before, roster);
   renderCalendar(); renderRoster(); renderAdmin();
 }
-function downloadJSON(data, filename) { const link = document.createElement("a"), blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); link.href = URL.createObjectURL(blob); link.download = filename; link.click(); URL.revokeObjectURL(link.href); }
+function downloadFile(content, filename, type) {
+  const link = document.createElement("a"), blob = new Blob([content], { type });
+  link.href = URL.createObjectURL(blob); link.download = filename; link.click(); URL.revokeObjectURL(link.href);
+}
+function downloadJSON(data, filename) { downloadFile(JSON.stringify(data, null, 2), filename, "application/json"); }
+function formatNADates(person, month) {
+  const dates = Object.keys(state.availability[person]?.[month] || {}).sort();
+  return dates.length
+    ? dates.map((key) => parseDate(key).toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })).join(", ")
+    : "No NA submitted";
+}
+function buildNAProofText(month) {
+  const titleMonth = parseDate(`${month}-01`).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  const lines = [
+    "Weekend Shift Roster - NA Entries Proof",
+    `Roster month: ${titleMonth}`,
+    "Submission window: 15th 11:00 AM IST to 28th 7:00 PM IST",
+    `Exported at: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "medium" })} IST`,
+    ""
+  ];
+  PEOPLE.forEach((person) => {
+    const submittedAt = state.submissions[person]?.[month]?.savedAt;
+    const savedInfo = submittedAt ? ` | saved: ${new Date(submittedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "medium" })} IST` : " | no saved response";
+    lines.push(`${displayName(person)}: ${formatNADates(person, month)}${savedInfo}`);
+  });
+  return `${lines.join("\n")}\n`;
+}
+async function exportNAProof(month = monthKey(shownMonth)) {
+  if (sharedMode && currentProfile?.employee_code) await refreshSharedState(false);
+  downloadFile(buildNAProofText(month), `weekend-roster-na-proof-${month}.txt`, "text/plain");
+}
+async function autoExportNAProofAtCutoff() {
+  if (!isCutoffPassed() || demoMode || previewMode) return;
+  if (sharedMode && !currentProfile?.employee_code) return;
+  const month = nextRosterMonthKey();
+  const key = `${STORAGE_KEY}-na-proof-exported-${month}`;
+  if (localStorage.getItem(key)) return;
+  try {
+    await exportNAProof(month);
+    localStorage.setItem(key, new Date().toISOString());
+  } catch (error) {
+    console.error("NA proof export failed", error);
+  }
+}
 function importData(event) {
   if (sharedMode) { alert("Import is disabled in shared database mode so the browser cannot overwrite database data."); event.target.value = ""; return; }
   const file = event.target.files[0]; if (!file) return;
@@ -467,6 +515,7 @@ $("lockAdmin").addEventListener("click", lockAdmin);
 $("swapRequester").addEventListener("change", renderSwap); $("swapColleague").addEventListener("change", renderSwap); $("submitSwap").addEventListener("click", submitSwap);
 $("swapFromDate").addEventListener("change", renderSwap); $("swapToDate").addEventListener("change", updateSwapButton);
 $("exportButton").addEventListener("click", () => downloadJSON(state, `weekend-roster-${monthKey(shownMonth)}.json`));
+$("exportNAProof").addEventListener("click", () => exportNAProof());
 $("downloadAudit").addEventListener("click", () => downloadJSON({ exportedAt: new Date().toISOString(), entries: state.audit }, "weekend-roster-audit-log.json"));
 $("finalizeButton").addEventListener("click", finalizeMonth);
 $("importFile").addEventListener("change", importData);
@@ -527,6 +576,7 @@ loadPersonDraft(); renderAll(); updateClock();
 setInterval(() => {
   updateClock();
   renderWindow();
+  autoExportNAProofAtCutoff();
   ensureCutoffRoster();
 }, 1000);
 setInterval(() => {

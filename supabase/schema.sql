@@ -132,11 +132,12 @@ begin
 end $$;
 
 create or replace function public.save_my_availability(p_employee_code text,p_month text,p_na_dates text[]) returns void language plpgsql security definer set search_path=public as $$
-declare member team_members; month_date date:=(p_month||'-01')::date; today_ist date:=(now() at time zone 'Asia/Kolkata')::date; prior jsonb;
+declare member team_members; month_date date:=(p_month||'-01')::date; current_ist timestamp:=(now() at time zone 'Asia/Kolkata'); today_ist date:=current_ist::date; window_minute numeric; prior jsonb;
 begin
   member:=current_member();
   if member.id is null or member.employee_code<>p_employee_code then raise exception 'Cannot save another employee account'; end if;
-  if extract(day from today_ist) not between 15 and 28 or month_date<>date_trunc('month',today_ist+interval '1 month')::date then raise exception 'Submission window is closed'; end if;
+  window_minute:=((extract(day from current_ist)-1)*24*60)+(extract(hour from current_ist)*60)+extract(minute from current_ist);
+  if window_minute < (((15-1)*24*60)+(11*60)) or window_minute >= (((28-1)*24*60)+(19*60)) or month_date<>date_trunc('month',today_ist+interval '1 month')::date then raise exception 'Submission window is closed'; end if;
   select coalesce(jsonb_agg(na_date order by na_date),'[]') into prior from availability where employee_id=member.id and roster_month=month_date;
   delete from availability where employee_id=member.id and roster_month=month_date;
   insert into availability(employee_id,roster_month,na_date) select member.id,month_date,x::date from unnest(p_na_dates)x;
@@ -212,7 +213,7 @@ begin
   values(auth.uid(),member.employee_code,member.full_name,'SWAP_REVOKED','Requester revoked '||req.status||' swap',coalesce(prior,to_jsonb(req)),case when req.status='approved' then (select roster from rosters where roster_month=roster_row.roster_month) else jsonb_build_object('status','revoked') end);
 end $$;
 create or replace function public.decide_swap_request(p_request_id uuid,p_approved boolean) returns void language plpgsql security definer set search_path=public as $$
-declare admin_profile profiles; admin_member team_members; req swap_requests; roster_row rosters; prior jsonb; assignments jsonb:='[]'; item jsonb; assigned jsonb; requester_code text; source_assigned jsonb; destination_assigned jsonb; colleague_id uuid;
+declare admin_profile profiles; admin_member team_members; req swap_requests; roster_row rosters; prior jsonb; assignments jsonb:='[]'; item jsonb; assigned jsonb; requester_code text; source_assigned jsonb; destination_assigned jsonb;
 begin
   if not is_admin() then raise exception 'Admin access required'; end if;
   select * into admin_profile from profiles where user_id=auth.uid(); admin_member:=current_member();
@@ -227,9 +228,7 @@ begin
   if roster_row.roster_month is null then raise exception 'Roster not found'; end if; prior:=roster_row.roster;
   select value->'assigned' into source_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.from_date::text;
   select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
-  select id into colleague_id from team_members where employee_code=req.colleague_code;
   if source_assigned ? req.colleague_code or destination_assigned ? requester_code then raise exception 'Employee already assigned on destination date'; end if;
-  if exists(select 1 from availability where employee_id=colleague_id and na_date=req.from_date) or exists(select 1 from availability where employee_id=req.requester_id and na_date=req.to_date) then raise exception 'Swap conflicts with submitted NA'; end if;
   if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,requester_code,req.to_date,req.from_date) then raise exception 'Swap creates a weekend-spacing conflict'; end if;
   for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
     assigned:=item->'assigned';
