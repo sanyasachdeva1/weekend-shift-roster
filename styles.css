@@ -129,9 +129,14 @@ th { color: var(--muted); background: #f7f9fc; font-size: 10px; text-transform: 
 .warnings { margin-top: 12px; padding: 12px; border-radius: 8px; color: #8a5200; background: #fff4d9; font-size: 12px; }
 .form-card { padding: 22px; }
 .form-intro { margin: -4px 0 20px; color: var(--muted); font-size: 13px; }
-.mode-toggle { margin: 0 0 16px; display: inline-flex; gap: 8px; flex-wrap: wrap; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: #f8fbff; }
-.mode-toggle label { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 999px; cursor: pointer; font-weight: 900; color: var(--muted); }
-.mode-toggle label:has(input:checked) { color: var(--blue); background: #eaf2ff; }
+.mode-toggle { margin: 0 0 18px; display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 12px; }
+.mode-toggle label { position: relative; min-height: 74px; padding: 14px 16px 14px 46px; display: flex; align-items: center; border: 1px solid #c8d5e6; border-radius: 14px; cursor: pointer; color: var(--muted); background: linear-gradient(180deg, #fff, #f8fbff); box-shadow: 0 10px 22px rgba(20, 45, 85, .06); transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+.mode-toggle label:hover { transform: translateY(-1px); border-color: #8fb6ef; box-shadow: 0 14px 28px rgba(32, 91, 170, .1); }
+.mode-toggle input { position: absolute; left: 16px; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); accent-color: var(--blue); }
+.mode-toggle strong { display: block; margin-bottom: 4px; color: var(--navy); font-size: 14px; }
+.mode-toggle small { display: block; max-width: 520px; color: var(--muted); font-size: 12px; line-height: 1.35; }
+.mode-toggle label:has(input:checked) { border-color: var(--blue); background: linear-gradient(180deg, #f5f9ff, #eaf2ff); box-shadow: inset 0 0 0 1px rgba(29, 99, 213, .18), 0 14px 28px rgba(32, 91, 170, .12); }
+.swap-form-shell { padding: 16px; border: 1px solid #d8e2ef; border-radius: 14px; background: #fbfdff; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 16px; margin-bottom: 16px; }
 .form-grid .full { grid-column: 1 / -1; }
 input, textarea { padding: 10px 12px; border: 1px solid #b9c6d7; border-radius: 8px; color: var(--navy); background: white; }
@@ -166,6 +171,7 @@ footer { padding: 22px; color: #7a8798; font-size: 11px; text-align: center; }
   h1 { font-size: 24px; }
   .notice, .notice div { align-items: flex-start; flex-direction: column; }
   .controls, .admin-gate, .form-grid { grid-template-columns: 1fr; }
+  .mode-toggle { grid-template-columns: 1fr; }
   .actions { flex-wrap: wrap; }
   .calendar-card { padding: 14px; }
   .weekdays, .calendar { min-width: 760px; grid-template-columns: repeat(5, 70px) repeat(2, 200px); }

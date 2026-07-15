@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#163a70">
   <title>Weekend Shift Roster</title>
-  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
   <header class="topbar">
@@ -102,17 +102,25 @@
       <div class="section-heading"><div><span>After the 1st of the roster month</span><h2>Request a swap or cover</h2></div><span id="swapEligibility" class="status pending">Checking</span></div>
       <p class="form-intro">Choose a two-person swap, or ask someone to cover one assigned shift on your behalf. The selected colleague approves next, then an admin gives final approval before the roster changes.</p>
       <div class="mode-toggle" role="radiogroup" aria-label="Request type">
-        <label><input type="radio" name="swapType" value="swap" checked> Swap two shifts</label>
-        <label><input type="radio" name="swapType" value="cover"> Cover one shift</label>
+        <label>
+          <input type="radio" name="swapType" value="swap" checked>
+          <span><strong>Swap two shifts</strong><small>Exchange your assigned date with another colleague’s assigned date.</small></span>
+        </label>
+        <label>
+          <input type="radio" name="swapType" value="cover">
+          <span><strong>Cover one shift</strong><small>Ask a colleague to work your assigned date on your behalf.</small></span>
+        </label>
       </div>
-      <div class="form-grid">
-        <label>Your name<select id="swapRequester"></select></label>
-        <label>Your assigned date<select id="swapFromDate"></select></label>
-        <label id="swapColleagueLabel">Swap with<select id="swapColleague"></select></label>
-        <label id="swapToDateLabel">Their assigned date<select id="swapToDate"></select></label>
-        <label class="full">Reason<textarea id="swapReason" rows="3" placeholder="Optional reason for the admin"></textarea></label>
+      <div class="swap-form-shell">
+        <div class="form-grid">
+          <label>Your name<select id="swapRequester"></select></label>
+          <label>Your assigned date<select id="swapFromDate"></select></label>
+          <label id="swapColleagueLabel">Swap with<select id="swapColleague"></select></label>
+          <label id="swapToDateLabel">Their assigned date<select id="swapToDate"></select></label>
+          <label class="full">Reason<textarea id="swapReason" rows="3" placeholder="Optional reason for the admin"></textarea></label>
+        </div>
+        <button id="submitSwap" class="primary" type="button">Send request to colleague</button>
       </div>
-      <button id="submitSwap" class="primary" type="button">Send request to colleague</button>
       <p id="swapMessage" class="inline-message"></p>
       <div class="section-heading lower"><div><span>Tracking</span><h2>Swap requests</h2></div></div>
       <div id="swapRequestList" class="request-list"></div>
@@ -160,9 +168,9 @@
       ["EMP022", "Yokeswaran Yohadhandan"]
     ];
   </script>
-  <script src="config.js?v=10"></script>
-  <script src="backend.js?v=10"></script>
-  <script src="roster-engine.js?v=10"></script>
-  <script src="app.js?v=10"></script>
+  <script src="config.js?v=11"></script>
+  <script src="backend.js?v=11"></script>
+  <script src="roster-engine.js?v=11"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
