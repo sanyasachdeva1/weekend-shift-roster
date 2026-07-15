@@ -51,7 +51,7 @@
 
     <nav class="tabs" aria-label="Roster workflows">
       <button class="tab active" data-panel="availabilityPanel" type="button">Availability</button>
-      <button class="tab" data-panel="swapPanel" type="button">Shift swap</button>
+      <button class="tab" data-panel="swapPanel" type="button">Swap / cover</button>
       <button class="tab" data-panel="adminPanel" type="button">Admin</button>
     </nav>
 
@@ -99,13 +99,17 @@
     </div>
 
     <section id="swapPanel" class="panel card form-card">
-      <div class="section-heading"><div><span>After the 1st of the roster month</span><h2>Request a shift swap</h2></div><span id="swapEligibility" class="status pending">Checking</span></div>
-      <p class="form-intro">Requester submits first, the selected colleague approves next, and an admin gives final approval before the roster changes.</p>
+      <div class="section-heading"><div><span>After the 1st of the roster month</span><h2>Request a swap or cover</h2></div><span id="swapEligibility" class="status pending">Checking</span></div>
+      <p class="form-intro">Choose a two-person swap, or ask someone to cover one assigned shift on your behalf. The selected colleague approves next, then an admin gives final approval before the roster changes.</p>
+      <div class="mode-toggle" role="radiogroup" aria-label="Request type">
+        <label><input type="radio" name="swapType" value="swap" checked> Swap two shifts</label>
+        <label><input type="radio" name="swapType" value="cover"> Cover one shift</label>
+      </div>
       <div class="form-grid">
         <label>Your name<select id="swapRequester"></select></label>
         <label>Your assigned date<select id="swapFromDate"></select></label>
-        <label>Swap with<select id="swapColleague"></select></label>
-        <label>Their assigned date<select id="swapToDate"></select></label>
+        <label id="swapColleagueLabel">Swap with<select id="swapColleague"></select></label>
+        <label id="swapToDateLabel">Their assigned date<select id="swapToDate"></select></label>
         <label class="full">Reason<textarea id="swapReason" rows="3" placeholder="Optional reason for the admin"></textarea></label>
       </div>
       <button id="submitSwap" class="primary" type="button">Send request to colleague</button>
@@ -156,9 +160,9 @@
       ["EMP022", "Yokeswaran Yohadhandan"]
     ];
   </script>
-  <script src="config.js?v=9"></script>
-  <script src="backend.js?v=9"></script>
-  <script src="roster-engine.js?v=9"></script>
-  <script src="app.js?v=9"></script>
+  <script src="config.js?v=10"></script>
+  <script src="backend.js?v=10"></script>
+  <script src="roster-engine.js?v=10"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>

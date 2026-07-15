@@ -64,6 +64,7 @@ function loadState() {
 }
 function normalizeState(data) {
   data.swapRequests = (data.swapRequests || []).map((request) => ({
+    type: "swap",
     ...request,
     status: request.status === "pending" ? "awaiting-colleague" : request.status
   }));
@@ -279,6 +280,7 @@ function currentSwapRoster() {
 }
 function employeeDates(roster, person) { return (roster?.assignments || []).filter((row) => row.assigned.includes(person)).map((row) => ({ value: row.date, label: parseDate(row.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) })); }
 function isNAOn(person, date) { return Boolean(state.availability[person]?.[date.slice(0, 7)]?.[date]); }
+const requestType = () => document.querySelector('input[name="swapType"]:checked')?.value || "swap";
 function eligibleSwapColleagues(roster, requester, fromDate) {
   const sourceRow = roster?.assignments.find((row) => row.date === fromDate);
   if (!sourceRow) return [];
@@ -292,23 +294,35 @@ function eligibleSwapDates(roster, requester, colleague, fromDate) {
     && !RosterEngine.hasScheduleConflict(roster.assignments, requester, row.date, fromDate)
   ).map((row) => ({ value: row.date, label: parseDate(row.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) }));
 }
+function eligibleCoverColleagues(roster, requester, fromDate) {
+  const sourceRow = roster?.assignments.find((row) => row.date === fromDate);
+  if (!sourceRow) return [];
+  return PEOPLE.filter((person) => person !== requester
+    && !sourceRow.assigned.includes(person)
+    && !RosterEngine.hasScheduleConflict(roster.assignments, person, fromDate));
+}
 function updateSwapButton() {
   const eligible = Boolean(currentSwapRoster()) && (demoMode || realNow.getDate() >= 1);
-  $("submitSwap").disabled = !eligible || !$("swapFromDate").value || !$("swapToDate").value;
+  $("submitSwap").disabled = !eligible || !$("swapFromDate").value || !$("swapColleague").value || (requestType() === "swap" && !$("swapToDate").value);
 }
 function renderSwap() {
   const requester = $("swapRequester").value || PEOPLE[0], previousFrom = $("swapFromDate").value, previousColleague = $("swapColleague").value, previousTo = $("swapToDate").value, roster = currentSwapRoster();
+  const mode = requestType();
+  $("swapColleagueLabel").firstChild.textContent = mode === "cover" ? "Cover by" : "Swap with";
+  $("swapToDateLabel").hidden = mode === "cover";
+  $("submitSwap").textContent = mode === "cover" ? "Send cover request to colleague" : "Send request to colleague";
   setOptions($("swapRequester"), teamOptions(PEOPLE.filter((name) => !INACTIVE.has(name))), ""); $("swapRequester").value = requester;
   const assignedDates = employeeDates(roster, requester);
   setOptions($("swapFromDate"), assignedDates, assignedDates.length ? "Select your assigned shift" : "No assigned dates");
   if ([...$("swapFromDate").options].some((option) => option.value === previousFrom)) $("swapFromDate").value = previousFrom;
   const fromDate = $("swapFromDate").value;
-  const colleagues = eligibleSwapColleagues(roster, requester, fromDate);
-  setOptions($("swapColleague"), teamOptions(colleagues), colleagues.length ? "Select an available colleague" : "No eligible colleagues");
+  const colleagues = mode === "cover" ? eligibleCoverColleagues(roster, requester, fromDate) : eligibleSwapColleagues(roster, requester, fromDate);
+  setOptions($("swapColleague"), teamOptions(colleagues), colleagues.length ? (mode === "cover" ? "Select someone to cover" : "Select an available colleague") : "No eligible colleagues");
   if (colleagues.includes(previousColleague)) $("swapColleague").value = previousColleague;
   const colleague = $("swapColleague").value;
-  const dates = eligibleSwapDates(roster, requester, colleague, fromDate);
+  const dates = mode === "cover" ? [] : eligibleSwapDates(roster, requester, colleague, fromDate);
   setOptions($("swapToDate"), dates, dates.length ? "Select their shift" : "No eligible shift dates");
+  $("swapToDate").disabled = mode === "cover";
   if (dates.some((option) => option.value === previousTo)) $("swapToDate").value = previousTo;
   const eligible = Boolean(roster) && (demoMode || realNow.getDate() >= 1);
   updateSwapButton();
@@ -322,12 +336,15 @@ function requestCards(requests, admin = false) {
   if (!requests.length) return `<div class="empty-state">No swap requests.</div>`;
   const viewer = $("swapRequester")?.value;
   return requests.slice().reverse().map((request) => {
-    const colleagueAction = !admin && request.status === "awaiting-colleague" && request.colleague === viewer ? `<div class="request-actions"><button class="primary colleague-approve" data-id="${request.id}">Approve swap</button><button class="danger colleague-reject" data-id="${request.id}">Decline</button></div>` : "";
+    const isCover = request.type === "cover";
+    const colleagueAction = !admin && request.status === "awaiting-colleague" && request.colleague === viewer ? `<div class="request-actions"><button class="primary colleague-approve" data-id="${request.id}">${isCover ? "Approve cover" : "Approve swap"}</button><button class="danger colleague-reject" data-id="${request.id}">Decline</button></div>` : "";
     const adminAction = admin && request.status === "colleague-approved" ? `<div class="request-actions"><button class="primary approve-swap" data-id="${request.id}">Final approve</button><button class="danger reject-swap" data-id="${request.id}">Reject</button></div>` : "";
     const revokeAction = !admin && ["awaiting-colleague", "colleague-approved", "approved"].includes(request.status) && request.requester === viewer ? `<button class="danger revoke-swap" data-id="${request.id}">${request.status === "approved" ? "Revoke approved swap" : "Revoke request"}</button>` : "";
     const statusText = request.status === "awaiting-colleague" ? `Waiting for ${displayName(request.colleague)} approval` : request.status === "colleague-approved" ? "Colleague approved · waiting for admin" : request.status;
     const helper = !admin && request.status === "awaiting-colleague" && request.colleague !== viewer ? `<em class="request-hint">Select ${safe(displayName(request.colleague))} in “Your name” to approve or decline this request.</em>` : "";
-    return `<div class="request-card"><div><strong>${safe(displayName(request.requester))} ↔ ${safe(displayName(request.colleague))}</strong><p>${safe(request.fromDate)} exchanged with ${safe(request.toDate)}</p><small>${safe(request.reason || "No reason supplied")} · ${new Date(request.createdAt).toLocaleString("en-IN")} · ${safe(statusText)}</small>${helper}</div>${colleagueAction || adminAction || revokeAction}</div>`;
+    const title = isCover ? `${safe(displayName(request.colleague))} covers for ${safe(displayName(request.requester))}` : `${safe(displayName(request.requester))} ↔ ${safe(displayName(request.colleague))}`;
+    const detail = isCover ? `${safe(request.fromDate)} covered on behalf of ${safe(displayName(request.requester))}` : `${safe(request.fromDate)} exchanged with ${safe(request.toDate)}`;
+    return `<div class="request-card"><div><strong>${title}</strong><p>${detail}</p><small>${safe(request.reason || "No reason supplied")} · ${new Date(request.createdAt).toLocaleString("en-IN")} · ${safe(statusText)}</small>${helper}</div>${colleagueAction || adminAction || revokeAction}</div>`;
   }).join("");
 }
 function decideColleagueSwap(id, approved) {
@@ -342,7 +359,8 @@ function decideColleagueSwap(id, approved) {
   const before = structuredClone(request);
   request.status = approved ? "colleague-approved" : "rejected";
   request.colleagueDecidedAt = new Date().toISOString();
-  audit(approved ? "SWAP_COLLEAGUE_APPROVED" : "SWAP_COLLEAGUE_REJECTED", displayName(request.colleague), `Colleague ${approved ? "approved" : "declined"} swap ${id}`, before, request);
+  const label = request.type === "cover" ? "cover" : "swap";
+  audit(approved ? (request.type === "cover" ? "COVER_COLLEAGUE_APPROVED" : "SWAP_COLLEAGUE_APPROVED") : (request.type === "cover" ? "COVER_COLLEAGUE_REJECTED" : "SWAP_COLLEAGUE_REJECTED"), displayName(request.colleague), `Colleague ${approved ? "approved" : "declined"} ${label} ${id}`, before, request);
   persist(); renderSwap(); renderAdmin();
 }
 async function revokeSwap(id) {
@@ -357,34 +375,45 @@ async function revokeSwap(id) {
   }
   const before = structuredClone(request), previousStatus = request.status;
   if (previousStatus === "approved") {
-    const roster = Object.values(state.rosters).find((item) => item.assignments.some((row) => row.date === request.fromDate) && item.assignments.some((row) => row.date === request.toDate));
+    const roster = Object.values(state.rosters).find((item) => item.assignments.some((row) => row.date === request.fromDate) && (request.type === "cover" || item.assignments.some((row) => row.date === request.toDate)));
     const source = roster?.assignments.find((row) => row.date === request.fromDate), destination = roster?.assignments.find((row) => row.date === request.toDate);
-    if (!source?.assigned.includes(request.colleague) || !destination?.assigned.includes(request.requester) || source.assigned.includes(request.requester) || destination.assigned.includes(request.colleague)) {
-      alert("This approved swap can no longer be safely reversed because the roster changed. Ask the admin to review it."); return;
+    if (request.type === "cover") {
+      if (!source?.assigned.includes(request.colleague) || source.assigned.includes(request.requester)) {
+        alert("This approved cover request can no longer be safely reversed because the roster changed. Ask the admin to review it."); return;
+      }
+      if (RosterEngine.hasScheduleConflict(roster.assignments, request.requester, request.fromDate, request.fromDate)) {
+        alert("The original shift now conflicts with another weekend assignment. Ask the admin to review the reversal."); return;
+      }
+      source.assigned[source.assigned.indexOf(request.colleague)] = request.requester;
+    } else {
+      if (!source?.assigned.includes(request.colleague) || !destination?.assigned.includes(request.requester) || source.assigned.includes(request.requester) || destination.assigned.includes(request.colleague)) {
+        alert("This approved swap can no longer be safely reversed because the roster changed. Ask the admin to review it."); return;
+      }
+      if (RosterEngine.hasScheduleConflict(roster.assignments, request.requester, request.fromDate, request.toDate) || RosterEngine.hasScheduleConflict(roster.assignments, request.colleague, request.toDate, request.fromDate)) {
+        alert("The original shifts now conflict with another weekend assignment. Ask the admin to review the reversal."); return;
+      }
+      source.assigned[source.assigned.indexOf(request.colleague)] = request.requester;
+      destination.assigned[destination.assigned.indexOf(request.requester)] = request.colleague;
     }
-    if (RosterEngine.hasScheduleConflict(roster.assignments, request.requester, request.fromDate, request.toDate) || RosterEngine.hasScheduleConflict(roster.assignments, request.colleague, request.toDate, request.fromDate)) {
-      alert("The original shifts now conflict with another weekend assignment. Ask the admin to review the reversal."); return;
-    }
-    source.assigned[source.assigned.indexOf(request.colleague)] = request.requester;
-    destination.assigned[destination.assigned.indexOf(request.requester)] = request.colleague;
   }
   request.status = "revoked"; request.revokedAt = new Date().toISOString();
-  audit("SWAP_REVOKED", displayName(request.requester), `${previousStatus === "approved" ? "Reversed approved" : "Revoked pending"} swap ${id}`, before, request);
+  audit(request.type === "cover" ? "COVER_REVOKED" : "SWAP_REVOKED", displayName(request.requester), `${previousStatus === "approved" ? "Reversed approved" : "Revoked pending"} ${request.type === "cover" ? "cover" : "swap"} ${id}`, before, request);
   persist(); renderCalendar(); renderRoster(); renderSwap(); renderAdmin();
 }
 async function submitSwap() {
-  const request = { id: crypto.randomUUID(), requester: $("swapRequester").value, fromDate: $("swapFromDate").value, colleague: $("swapColleague").value, toDate: $("swapToDate").value, reason: $("swapReason").value.trim(), status: "awaiting-colleague", createdAt: new Date().toISOString() };
+  const type = requestType();
+  const request = { id: crypto.randomUUID(), type, requester: $("swapRequester").value, fromDate: $("swapFromDate").value, colleague: $("swapColleague").value, toDate: type === "cover" ? null : $("swapToDate").value, reason: $("swapReason").value.trim(), status: "awaiting-colleague", createdAt: new Date().toISOString() };
   if (sharedMode) {
     try {
       await window.RosterBackend.requestSwap(request);
-      $("swapMessage").textContent = `Request sent to ${displayName(request.colleague)} for approval first.`;
+      $("swapMessage").textContent = `${type === "cover" ? "Cover request" : "Swap request"} sent to ${displayName(request.colleague)} for approval first.`;
       $("swapReason").value = "";
       await refreshSharedState();
     } catch (error) { alert(`Shared request failed: ${error.message}`); }
     return;
   }
-  state.swapRequests.push(request); audit("SWAP_REQUESTED", displayName(request.requester), `${request.fromDate} with ${displayName(request.colleague)} on ${request.toDate}`, null, request);
-  $("swapMessage").textContent = `Request sent to ${displayName(request.colleague)} for approval first.`; $("swapReason").value = ""; renderSwap(); renderAdmin();
+  state.swapRequests.push(request); audit(type === "cover" ? "COVER_REQUESTED" : "SWAP_REQUESTED", displayName(request.requester), type === "cover" ? `${displayName(request.colleague)} covering ${request.fromDate}` : `${request.fromDate} with ${displayName(request.colleague)} on ${request.toDate}`, null, request);
+  $("swapMessage").textContent = `${type === "cover" ? "Cover request" : "Swap request"} sent to ${displayName(request.colleague)} for approval first.`; $("swapReason").value = ""; renderSwap(); renderAdmin();
 }
 async function decideSwap(id, approved) {
   const admin = adminActor(); if (!admin) return;
@@ -396,20 +425,27 @@ async function decideSwap(id, approved) {
     } catch (error) { alert(`Shared approval failed: ${error.message}`); }
     return;
   }
-  const rosterEntry = Object.entries(state.rosters).find(([, roster]) => roster.assignments.some((row) => row.date === request.fromDate) && roster.assignments.some((row) => row.date === request.toDate));
+  const rosterEntry = Object.entries(state.rosters).find(([, roster]) => roster.assignments.some((row) => row.date === request.fromDate) && (request.type === "cover" || roster.assignments.some((row) => row.date === request.toDate)));
   const before = structuredClone(request);
-  if (!approved) { request.status = "rejected"; request.decidedAt = new Date().toISOString(); request.admin = admin; audit("SWAP_REJECTED", admin, `Rejected request ${id}`, before, request); }
+  if (!approved) { request.status = "rejected"; request.decidedAt = new Date().toISOString(); request.admin = admin; audit(request.type === "cover" ? "COVER_REJECTED" : "SWAP_REJECTED", admin, `Rejected request ${id}`, before, request); }
   else if (!rosterEntry) alert("The roster for this request no longer exists.");
   else {
     const [month, roster] = rosterEntry, oldRoster = structuredClone(roster);
     const rowA = roster.assignments.find((row) => row.date === request.fromDate), rowB = roster.assignments.find((row) => row.date === request.toDate);
-    if (!rowA.assigned.includes(request.requester) || !rowB.assigned.includes(request.colleague)) { alert("Assignments changed; this request must be reviewed again."); return; }
-    if (rowA.assigned.includes(request.colleague) || rowB.assigned.includes(request.requester)) { alert("Swap rejected: one employee is already assigned on the destination date."); return; }
-    if (RosterEngine.hasScheduleConflict(roster.assignments, request.colleague, request.fromDate, request.toDate) || RosterEngine.hasScheduleConflict(roster.assignments, request.requester, request.toDate, request.fromDate)) { alert("Swap rejected: it would create a same-weekend or consecutive-Saturday conflict."); return; }
-    rowA.assigned[rowA.assigned.indexOf(request.requester)] = request.colleague;
-    rowB.assigned[rowB.assigned.indexOf(request.colleague)] = request.requester;
+    if (request.type === "cover") {
+      if (!rowA.assigned.includes(request.requester)) { alert("Assignments changed; this cover request must be reviewed again."); return; }
+      if (rowA.assigned.includes(request.colleague)) { alert("Cover rejected: this employee is already assigned on that date."); return; }
+      if (RosterEngine.hasScheduleConflict(roster.assignments, request.colleague, request.fromDate)) { alert("Cover rejected: it would create a same-weekend or consecutive-Saturday conflict."); return; }
+      rowA.assigned[rowA.assigned.indexOf(request.requester)] = request.colleague;
+    } else {
+      if (!rowA.assigned.includes(request.requester) || !rowB.assigned.includes(request.colleague)) { alert("Assignments changed; this request must be reviewed again."); return; }
+      if (rowA.assigned.includes(request.colleague) || rowB.assigned.includes(request.requester)) { alert("Swap rejected: one employee is already assigned on the destination date."); return; }
+      if (RosterEngine.hasScheduleConflict(roster.assignments, request.colleague, request.fromDate, request.toDate) || RosterEngine.hasScheduleConflict(roster.assignments, request.requester, request.toDate, request.fromDate)) { alert("Swap rejected: it would create a same-weekend or consecutive-Saturday conflict."); return; }
+      rowA.assigned[rowA.assigned.indexOf(request.requester)] = request.colleague;
+      rowB.assigned[rowB.assigned.indexOf(request.colleague)] = request.requester;
+    }
     request.status = "approved"; request.decidedAt = new Date().toISOString(); request.admin = admin;
-    audit("SWAP_APPROVED", admin, `${request.requester} (${request.fromDate}) swapped with ${request.colleague} (${request.toDate}) in ${month}`, { request: before, roster: oldRoster }, { request, roster });
+    audit(request.type === "cover" ? "COVER_APPROVED" : "SWAP_APPROVED", admin, request.type === "cover" ? `${request.colleague} covered ${request.requester} on ${request.fromDate} in ${month}` : `${request.requester} (${request.fromDate}) swapped with ${request.colleague} (${request.toDate}) in ${month}`, { request: before, roster: oldRoster }, { request, roster });
     renderCalendar(); renderRoster();
   }
   persist(); renderSwap(); renderAdmin();
@@ -514,6 +550,7 @@ $("unlockAdmin").addEventListener("click", () => unlockAdmin());
 $("lockAdmin").addEventListener("click", lockAdmin);
 $("swapRequester").addEventListener("change", renderSwap); $("swapColleague").addEventListener("change", renderSwap); $("submitSwap").addEventListener("click", submitSwap);
 $("swapFromDate").addEventListener("change", renderSwap); $("swapToDate").addEventListener("change", updateSwapButton);
+document.querySelectorAll('input[name="swapType"]').forEach((input) => input.addEventListener("change", renderSwap));
 $("exportButton").addEventListener("click", () => downloadJSON(state, `weekend-roster-${monthKey(shownMonth)}.json`));
 $("exportNAProof").addEventListener("click", () => exportNAProof());
 $("downloadAudit").addEventListener("click", () => downloadJSON({ exportedAt: new Date().toISOString(), entries: state.audit }, "weekend-roster-audit-log.json"));
@@ -591,6 +628,5 @@ window.addEventListener("focus", () => {
 });
 const currentRoster = state.rosters[monthKey(shownMonth)];
 if (previewMode === "after" && !currentRoster) generateRoster("Preview scheduler");
-else if (previewMode !== "before" && currentRoster && !rosterIsValid(currentRoster) && !sharedMode) generateRoster("Roster validator");
 else if (!sharedMode && previewMode !== "before" && isCutoffPassed() && !currentRoster) generateRoster();
 initializeSharedMode();

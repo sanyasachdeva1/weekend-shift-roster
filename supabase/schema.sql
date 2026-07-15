@@ -53,9 +53,10 @@ create table if not exists public.rosters (
 create table if not exists public.swap_requests (
   id uuid primary key default gen_random_uuid(),
   requester_id uuid not null references public.team_members(id),
+  request_type text not null default 'swap' check(request_type in ('swap','cover')),
   colleague_code text not null references public.team_members(employee_code),
   from_date date not null,
-  to_date date not null,
+  to_date date,
   reason text,
   status text not null default 'awaiting-colleague' check(status in ('awaiting-colleague','colleague-approved','approved','rejected','revoked')),
   decided_by uuid references public.profiles(user_id),
@@ -63,6 +64,14 @@ create table if not exists public.swap_requests (
   created_at timestamptz not null default now(),
   decided_at timestamptz
 );
+alter table public.swap_requests add column if not exists request_type text not null default 'swap';
+alter table public.swap_requests alter column to_date drop not null;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname='swap_requests_request_type_check') then
+    alter table public.swap_requests add constraint swap_requests_request_type_check check(request_type in ('swap','cover'));
+  end if;
+end $$;
 create table if not exists public.audit_log (
   id uuid primary key default gen_random_uuid(),
   occurred_at timestamptz not null default now(),
@@ -168,14 +177,16 @@ begin
 end $$;
 
 create or replace function public.create_swap_request(p_request jsonb) returns uuid language plpgsql security definer set search_path=public as $$
-declare member team_members; request_id uuid;
+declare member team_members; request_id uuid; request_type text:=coalesce(p_request->>'type','swap');
 begin
   member:=current_member();
   if member.id is null or member.employee_code<>p_request->>'requester' then raise exception 'Requester does not match login'; end if;
-  insert into swap_requests(id,requester_id,colleague_code,from_date,to_date,reason,status)
-  values((p_request->>'id')::uuid,member.id,p_request->>'colleague',(p_request->>'fromDate')::date,(p_request->>'toDate')::date,p_request->>'reason','awaiting-colleague') returning id into request_id;
+  if request_type not in ('swap','cover') then raise exception 'Unsupported request type'; end if;
+  if request_type='swap' and nullif(p_request->>'toDate','') is null then raise exception 'Swap requires both dates'; end if;
+  insert into swap_requests(id,requester_id,request_type,colleague_code,from_date,to_date,reason,status)
+  values((p_request->>'id')::uuid,member.id,request_type,p_request->>'colleague',(p_request->>'fromDate')::date,nullif(p_request->>'toDate','')::date,p_request->>'reason','awaiting-colleague') returning id into request_id;
   insert into audit_log(actor_id,actor_code,actor_name,action,details,after_data)
-  values(auth.uid(),member.employee_code,member.full_name,'SWAP_REQUESTED','Swap request created',p_request);
+  values(auth.uid(),member.employee_code,member.full_name,case when request_type='cover' then 'COVER_REQUESTED' else 'SWAP_REQUESTED' end,case when request_type='cover' then 'Cover request created' else 'Swap request created' end,p_request);
   return request_id;
 end $$;
 create or replace function public.decide_colleague_swap_request(p_request_id uuid,p_approved boolean) returns void language plpgsql security definer set search_path=public as $$
@@ -186,7 +197,7 @@ begin
   if req.id is null then raise exception 'Colleague approval request not found'; end if;
   update swap_requests set status=case when p_approved then 'colleague-approved' else 'rejected' end,colleague_decided_at=now() where id=req.id;
   insert into audit_log(actor_id,actor_code,actor_name,action,details,before_data,after_data)
-  values(auth.uid(),member.employee_code,member.full_name,case when p_approved then 'SWAP_COLLEAGUE_APPROVED' else 'SWAP_COLLEAGUE_REJECTED' end,'Colleague swap decision',to_jsonb(req),jsonb_build_object('approved',p_approved));
+  values(auth.uid(),member.employee_code,member.full_name,case when req.request_type='cover' and p_approved then 'COVER_COLLEAGUE_APPROVED' when req.request_type='cover' then 'COVER_COLLEAGUE_REJECTED' when p_approved then 'SWAP_COLLEAGUE_APPROVED' else 'SWAP_COLLEAGUE_REJECTED' end,case when req.request_type='cover' then 'Colleague cover decision' else 'Colleague swap decision' end,to_jsonb(req),jsonb_build_object('approved',p_approved));
 end $$;
 create or replace function public.revoke_swap_request(p_request_id uuid) returns void language plpgsql security definer set search_path=public as $$
 declare member team_members; req swap_requests; roster_row rosters; requester_code text; prior jsonb; assignments jsonb:='[]'; item jsonb; assigned jsonb; source_assigned jsonb; destination_assigned jsonb;
@@ -197,20 +208,25 @@ begin
     select * into roster_row from rosters where roster_month=date_trunc('month',req.from_date)::date for update;
     if roster_row.roster_month is null then raise exception 'Roster not found'; end if; prior:=roster_row.roster; requester_code:=member.employee_code;
     select value->'assigned' into source_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.from_date::text;
-    select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
-    if not (source_assigned ? req.colleague_code) or not (destination_assigned ? requester_code) or source_assigned ? requester_code or destination_assigned ? req.colleague_code then raise exception 'Roster changed; approved swap cannot be safely reversed'; end if;
-    if has_weekend_conflict(roster_row.roster,requester_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,req.colleague_code,req.to_date,req.from_date) then raise exception 'Reversal creates a weekend-spacing conflict'; end if;
+    if req.request_type='cover' then
+      if not (source_assigned ? req.colleague_code) or source_assigned ? requester_code then raise exception 'Roster changed; approved cover cannot be safely reversed'; end if;
+      if has_weekend_conflict(roster_row.roster,requester_code,req.from_date,req.from_date) then raise exception 'Reversal creates a weekend-spacing conflict'; end if;
+    else
+      select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
+      if not (source_assigned ? req.colleague_code) or not (destination_assigned ? requester_code) or source_assigned ? requester_code or destination_assigned ? req.colleague_code then raise exception 'Roster changed; approved swap cannot be safely reversed'; end if;
+      if has_weekend_conflict(roster_row.roster,requester_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,req.colleague_code,req.to_date,req.from_date) then raise exception 'Reversal creates a weekend-spacing conflict'; end if;
+    end if;
     for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
       assigned:=item->'assigned';
       if (item->>'date')::date=req.from_date then assigned:=(select jsonb_agg(case when value#>>'{}'=req.colleague_code then to_jsonb(requester_code) else value end) from jsonb_array_elements(assigned)); end if;
-      if (item->>'date')::date=req.to_date then assigned:=(select jsonb_agg(case when value#>>'{}'=requester_code then to_jsonb(req.colleague_code) else value end) from jsonb_array_elements(assigned)); end if;
+      if req.request_type='swap' and (item->>'date')::date=req.to_date then assigned:=(select jsonb_agg(case when value#>>'{}'=requester_code then to_jsonb(req.colleague_code) else value end) from jsonb_array_elements(assigned)); end if;
       assignments:=assignments||jsonb_build_array(jsonb_set(item,'{assigned}',assigned));
     end loop;
     update rosters set roster=jsonb_set(roster,'{assignments}',assignments) where roster_month=roster_row.roster_month;
   end if;
   update swap_requests set status='revoked',decided_at=now() where id=req.id;
   insert into audit_log(actor_id,actor_code,actor_name,action,details,before_data,after_data)
-  values(auth.uid(),member.employee_code,member.full_name,'SWAP_REVOKED','Requester revoked '||req.status||' swap',coalesce(prior,to_jsonb(req)),case when req.status='approved' then (select roster from rosters where roster_month=roster_row.roster_month) else jsonb_build_object('status','revoked') end);
+  values(auth.uid(),member.employee_code,member.full_name,case when req.request_type='cover' then 'COVER_REVOKED' else 'SWAP_REVOKED' end,'Requester revoked '||req.status||' '||req.request_type,coalesce(prior,to_jsonb(req)),case when req.status='approved' then (select roster from rosters where roster_month=roster_row.roster_month) else jsonb_build_object('status','revoked') end);
 end $$;
 create or replace function public.decide_swap_request(p_request_id uuid,p_approved boolean) returns void language plpgsql security definer set search_path=public as $$
 declare admin_profile profiles; admin_member team_members; req swap_requests; roster_row rosters; prior jsonb; assignments jsonb:='[]'; item jsonb; assigned jsonb; requester_code text; source_assigned jsonb; destination_assigned jsonb;
@@ -222,24 +238,30 @@ begin
   select employee_code into requester_code from team_members where id=req.requester_id;
   if not p_approved then
     update swap_requests set status='rejected',decided_by=auth.uid(),decided_at=now() where id=req.id;
-    insert into audit_log(actor_id,actor_code,actor_name,action,details,before_data) values(auth.uid(),admin_member.employee_code,admin_member.full_name,'SWAP_REJECTED','Swap rejected',to_jsonb(req)); return;
+    insert into audit_log(actor_id,actor_code,actor_name,action,details,before_data) values(auth.uid(),admin_member.employee_code,admin_member.full_name,case when req.request_type='cover' then 'COVER_REJECTED' else 'SWAP_REJECTED' end,case when req.request_type='cover' then 'Cover rejected' else 'Swap rejected' end,to_jsonb(req)); return;
   end if;
   select * into roster_row from rosters where roster_month=date_trunc('month',req.from_date)::date for update;
   if roster_row.roster_month is null then raise exception 'Roster not found'; end if; prior:=roster_row.roster;
   select value->'assigned' into source_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.from_date::text;
-  select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
-  if source_assigned ? req.colleague_code or destination_assigned ? requester_code then raise exception 'Employee already assigned on destination date'; end if;
-  if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,requester_code,req.to_date,req.from_date) then raise exception 'Swap creates a weekend-spacing conflict'; end if;
+  if req.request_type='cover' then
+    if not (source_assigned ? requester_code) then raise exception 'Requester is no longer assigned on source date'; end if;
+    if source_assigned ? req.colleague_code then raise exception 'Employee already assigned on covered date'; end if;
+    if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date) then raise exception 'Cover creates a weekend-spacing conflict'; end if;
+  else
+    select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
+    if source_assigned ? req.colleague_code or destination_assigned ? requester_code then raise exception 'Employee already assigned on destination date'; end if;
+    if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,requester_code,req.to_date,req.from_date) then raise exception 'Swap creates a weekend-spacing conflict'; end if;
+  end if;
   for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
     assigned:=item->'assigned';
     if (item->>'date')::date=req.from_date then assigned:=(select jsonb_agg(case when value#>>'{}'=requester_code then to_jsonb(req.colleague_code) else value end) from jsonb_array_elements(assigned)); end if;
-    if (item->>'date')::date=req.to_date then assigned:=(select jsonb_agg(case when value#>>'{}'=req.colleague_code then to_jsonb(requester_code) else value end) from jsonb_array_elements(assigned)); end if;
+    if req.request_type='swap' and (item->>'date')::date=req.to_date then assigned:=(select jsonb_agg(case when value#>>'{}'=req.colleague_code then to_jsonb(requester_code) else value end) from jsonb_array_elements(assigned)); end if;
     assignments:=assignments||jsonb_build_array(jsonb_set(item,'{assigned}',assigned));
   end loop;
   update rosters set roster=jsonb_set(roster,'{assignments}',assignments) where roster_month=roster_row.roster_month;
   update swap_requests set status='approved',decided_by=auth.uid(),decided_at=now() where id=req.id;
   insert into audit_log(actor_id,actor_code,actor_name,action,details,before_data,after_data)
-  values(auth.uid(),admin_member.employee_code,admin_member.full_name,'SWAP_APPROVED','Approved swap '||req.id,prior,(select roster from rosters where roster_month=roster_row.roster_month));
+  values(auth.uid(),admin_member.employee_code,admin_member.full_name,case when req.request_type='cover' then 'COVER_APPROVED' else 'SWAP_APPROVED' end,case when req.request_type='cover' then 'Approved cover '||req.id else 'Approved swap '||req.id end,prior,(select roster from rosters where roster_month=roster_row.roster_month));
 end $$;
 
 create or replace function public.get_roster_state() returns jsonb language plpgsql stable security definer set search_path=public as $$
@@ -250,7 +272,7 @@ begin
   for row_data in select t.employee_code,a.roster_month,jsonb_object_agg(a.na_date::text,true) dates from availability a join team_members t on t.id=a.employee_id where a.employee_id=member.id or is_admin() group by t.employee_code,a.roster_month loop result:=jsonb_set(result,array['availability',row_data.employee_code,to_char(row_data.roster_month,'YYYY-MM')],row_data.dates,true); end loop;
   for row_data in select t.employee_code,s.roster_month,s.saved_at from submissions s join team_members t on t.id=s.employee_id where s.employee_id=member.id or is_admin() loop result:=jsonb_set(result,array['submissions',row_data.employee_code,to_char(row_data.roster_month,'YYYY-MM')],jsonb_build_object('savedAt',row_data.saved_at),true); end loop;
   for row_data in select roster_month,roster from rosters where status in('published','finalized') or is_admin() loop result:=jsonb_set(result,array['rosters',to_char(row_data.roster_month,'YYYY-MM')],row_data.roster,true); end loop;
-  result:=jsonb_set(result,'{swapRequests}',coalesce((select jsonb_agg(jsonb_build_object('id',s.id,'requester',t.employee_code,'colleague',s.colleague_code,'fromDate',s.from_date,'toDate',s.to_date,'reason',s.reason,'status',s.status,'createdAt',s.created_at)) from swap_requests s join team_members t on t.id=s.requester_id where s.requester_id=member.id or s.colleague_code=member.employee_code or is_admin()),'[]'));
+  result:=jsonb_set(result,'{swapRequests}',coalesce((select jsonb_agg(jsonb_build_object('id',s.id,'type',s.request_type,'requester',t.employee_code,'colleague',s.colleague_code,'fromDate',s.from_date,'toDate',s.to_date,'reason',s.reason,'status',s.status,'createdAt',s.created_at)) from swap_requests s join team_members t on t.id=s.requester_id where s.requester_id=member.id or s.colleague_code=member.employee_code or is_admin()),'[]'));
   if is_admin() then result:=jsonb_set(result,'{audit}',coalesce((select jsonb_agg(jsonb_build_object('id',id,'at',occurred_at,'actor',coalesce(actor_name,actor_code),'action',action,'details',details,'before',before_data,'after',after_data) order by occurred_at) from audit_log),'[]')); end if;
   return result;
 end $$;

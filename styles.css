@@ -129,6 +129,9 @@ th { color: var(--muted); background: #f7f9fc; font-size: 10px; text-transform: 
 .warnings { margin-top: 12px; padding: 12px; border-radius: 8px; color: #8a5200; background: #fff4d9; font-size: 12px; }
 .form-card { padding: 22px; }
 .form-intro { margin: -4px 0 20px; color: var(--muted); font-size: 13px; }
+.mode-toggle { margin: 0 0 16px; display: inline-flex; gap: 8px; flex-wrap: wrap; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: #f8fbff; }
+.mode-toggle label { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 999px; cursor: pointer; font-weight: 900; color: var(--muted); }
+.mode-toggle label:has(input:checked) { color: var(--blue); background: #eaf2ff; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 16px; margin-bottom: 16px; }
 .form-grid .full { grid-column: 1 / -1; }
 input, textarea { padding: 10px 12px; border: 1px solid #b9c6d7; border-radius: 8px; color: var(--navy); background: white; }
