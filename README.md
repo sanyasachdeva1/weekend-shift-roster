@@ -25,7 +25,7 @@ Then visit `http://localhost:8000`.
 - Availability is editable only from 15th 11:00 AM IST until 28th 7:00 PM IST for the following month.
 - After cutoff, the scheduler can automatically generate the next roster.
 - Saves data in that browser with `localStorage`.
-- Imports/exports JSON snapshots for backup or committing to GitHub.
+- Exports JSON snapshots for backup or committing to GitHub.
 - Exports a simple TXT proof file listing every person's name, NA dates and saved-response timestamp.
 - Generates a draft with 4 people on Saturday and 3 on Sunday.
 - Excludes NA dates initially, avoids consecutive Saturdays where possible, and balances assignments using prior-month history.
@@ -33,7 +33,7 @@ Then visit `http://localhost:8000`.
 - If availability causes a shortage, fills the gap by overriding NA for the latest responders first, using their saved response timestamps. Every override is visibly marked and retained in roster history.
 - Treats anyone who did not submit before cutoff as available for the full month; there is no separate PTO administration.
 - Employees can request a two-person date swap or ask a colleague to cover one assigned shift after the roster month begins; submitted NA dates do not block these options because teams can agree to exceptions.
-- Admin approval atomically exchanges only the two requested assignments for swaps, or replaces only the covered assignment for one-way coverage.
+- Once the selected colleague approves, the roster updates automatically: swaps exchange only the two requested assignments, and cover requests replace only the covered assignment.
 - Availability saves, roster generation, requests and decisions are recorded in an append-only audit log with before/after snapshots.
 - The audit history can be downloaded as a JSON file.
 
