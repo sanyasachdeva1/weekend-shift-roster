@@ -334,7 +334,7 @@ begin
 end $$;
 
 create or replace function public.get_roster_state() returns jsonb language plpgsql stable security definer set search_path=public as $$
-declare result jsonb:=jsonb_build_object('version',3,'availability','{}','submissions','{}','rosters','{}','swapRequests','[]','audit','[]','team','[]'); member team_members; row_data record;
+declare result jsonb:=jsonb_build_object('version',3,'availability','{}'::jsonb,'submissions','{}'::jsonb,'rosters','{}'::jsonb,'swapRequests','[]'::jsonb,'audit','[]'::jsonb,'team','[]'::jsonb); member team_members; row_data record;
 begin
   member:=current_member(); if member.id is null then raise exception 'Approved account required'; end if;
   result:=jsonb_set(result,'{team}',coalesce((select jsonb_agg(jsonb_build_object('employee_code',employee_code,'full_name',full_name) order by employee_code) from team_members where active and full_name is not null),'[]'));
@@ -347,7 +347,7 @@ begin
 end $$;
 
 create or replace function public.open_get_roster_state() returns jsonb language plpgsql stable security definer set search_path=public as $$
-declare result jsonb:=jsonb_build_object('version',3,'availability','{}','submissions','{}','rosters','{}','swapRequests','[]','audit','[]','team','[]'); row_data record;
+declare result jsonb:=jsonb_build_object('version',3,'availability','{}'::jsonb,'submissions','{}'::jsonb,'rosters','{}'::jsonb,'swapRequests','[]'::jsonb,'audit','[]'::jsonb,'team','[]'::jsonb); row_data record;
 begin
   result:=jsonb_set(result,'{team}',coalesce((select jsonb_agg(jsonb_build_object('employee_code',employee_code,'full_name',full_name,'coverage_group',coverage_group) order by employee_code) from team_members where active and full_name is not null),'[]'));
   for row_data in select t.employee_code,a.roster_month,jsonb_object_agg(a.na_date::text,true) dates from availability a join team_members t on t.id=a.employee_id where t.active group by t.employee_code,a.roster_month loop result:=jsonb_set(result,array['availability',row_data.employee_code,to_char(row_data.roster_month,'YYYY-MM')],row_data.dates,true); end loop;
