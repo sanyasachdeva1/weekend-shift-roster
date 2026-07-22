@@ -45,6 +45,7 @@ const safe = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&"
 const displayName = (code) => displayNames[code] || code;
 const sortByDisplayName = (codes) => codes.slice().sort((a, b) => displayName(a).localeCompare(displayName(b), "en-IN", { sensitivity: "base" }));
 const teamOptions = (codes) => codes.map((value) => ({ value, label: displayName(value) }));
+const selectedPerson = () => $("personSelect")?.value || "";
 function istNowParts(date = new Date()) {
   return Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
@@ -160,7 +161,7 @@ function renderWindow() {
     ? `Submit and save NA dates for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}. The window closes at 28th 7:00 PM IST.`
     : `The next-month form opens at ${openText} and closes at 28th 7:00 PM IST. After that, calendar changes are locked. ${demoMode ? "Demo override is active." : ""}`;
   $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 28th 7 PM" : "Closed";
-  $("saveButton").disabled = !open || !dirty;
+  $("saveButton").disabled = !open || !dirty || !selectedPerson();
 }
 function updateSaveState() {
   $("saveState").textContent = dirty ? "Unsaved changes" : "No unsaved changes";
@@ -171,7 +172,13 @@ function setOptions(select, values, placeholder) {
   select.innerHTML = `${placeholder ? `<option value="">${safe(placeholder)}</option>` : ""}${values.map((value) => `<option value="${safe(value.value ?? value)}">${safe(value.label ?? value)}</option>`).join("")}`;
 }
 function loadPersonDraft() {
-  const person = $("personSelect").value || PEOPLE[0];
+  const person = selectedPerson();
+  if (!person) {
+    pendingNA = new Set();
+    dirty = false;
+    updateSaveState();
+    return;
+  }
   pendingNA = new Set(Object.keys(state.availability[person]?.[monthKey(shownMonth)] || {}));
   dirty = false;
   updateSaveState();
@@ -180,6 +187,38 @@ function renderPeople() {
   // Availability context is integrated into each weekend calendar cell.
 }
 function naNamesForDate(key) { return PEOPLE.filter((code) => state.availability[code]?.[key.slice(0, 7)]?.[key]).map(displayName); }
+function bindNATooltips() {
+  let tooltip = document.querySelector(".na-tooltip");
+  if (!tooltip) {
+    tooltip = document.createElement("div");
+    tooltip.className = "na-tooltip";
+    document.body.appendChild(tooltip);
+  }
+  const hide = () => {
+    tooltip.classList.remove("visible");
+  };
+  const move = (event) => {
+    tooltip.textContent = event.currentTarget.dataset.na || "No NA submitted";
+    tooltip.classList.add("visible");
+    const margin = 12;
+    const rect = tooltip.getBoundingClientRect();
+    const anchor = event.currentTarget.getBoundingClientRect();
+    const pointerX = event.clientX || anchor.left + anchor.width / 2;
+    const pointerY = event.clientY || anchor.top;
+    const left = Math.min(window.innerWidth - rect.width - margin, Math.max(margin, pointerX - rect.width / 2));
+    const above = pointerY - rect.height - 14;
+    const top = above > margin ? above : Math.min(window.innerHeight - rect.height - margin, pointerY + 16);
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  };
+  document.querySelectorAll("[data-na]").forEach((button) => {
+    button.addEventListener("mouseenter", move);
+    button.addEventListener("mousemove", move);
+    button.addEventListener("mouseleave", hide);
+    button.addEventListener("blur", hide);
+    button.addEventListener("focus", move);
+  });
+}
 function shownRoster() {
   if (previewMode === "before") return null;
   return state.rosters[monthKey(shownMonth)] || null;
@@ -191,17 +230,24 @@ function renderCalendar() {
   const offset = (new Date(year, month, 1).getDay() + 6) % 7;
   let html = `<button class="day blank" tabindex="-1"></button>`.repeat(offset);
   for (let day = 1; day <= new Date(year, month + 1, 0).getDate(); day += 1) {
-    const date = new Date(year, month, day), weekend = [0, 6].includes(date.getDay()), key = dateKey(date), na = pendingNA.has(key), teamNA = weekend ? naNamesForDate(key) : [];
+    const date = new Date(year, month, day), weekend = [0, 6].includes(date.getDay()), key = dateKey(date), person = selectedPerson(), na = Boolean(person) && pendingNA.has(key), teamNA = weekend ? naNamesForDate(key) : [];
     const row = weekend ? roster?.assignments?.find((item) => item.date === key) : null;
     const overrideNames = new Set((row?.overrides || []).map((item) => item.name));
     const assignedHtml = row ? `<div class="assignment-list">${row.assigned.map((name) => `<span class="assignment-chip ${overrideNames.has(name) ? "override" : ""}" title="${overrideNames.has(name) ? "NA overridden because this was a latest response" : ""}">${safe(displayName(name))}${overrideNames.has(name) ? " · override" : ""}</span>`).join("")}</div>` : "";
     const weekendHeader = row
       ? `<div class="day-top roster-day-top"><span class="day-number">${day}</span></div>`
-      : `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">${na ? "Your NA" : "Available"} <span class="label-separator">•</span> ${teamNA.length} NA</span></div>`;
-    html += `<button class="day ${weekend ? "weekend" : ""} ${na ? "na" : ""}" ${weekend ? `data-date="${key}" data-na="${safe(teamNA.length ? `NA: ${teamNA.join(", ")}` : "No NA submitted")}" aria-pressed="${na}" ${isSubmissionOpen() ? "" : "disabled"}` : "disabled"}>${weekend ? `${weekendHeader}${assignedHtml}` : `<span class="day-number weekday-number">${day}</span>`}</button>`;
+      : `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">${person ? (na ? "Your NA" : "Available") : "Select name"} <span class="label-separator">•</span> ${teamNA.length} NA</span></div>`;
+    const canSelectDate = isSubmissionOpen() && Boolean(person);
+    html += `<button class="day ${weekend ? "weekend" : ""} ${na ? "na" : ""} ${weekend && !canSelectDate ? "locked" : ""}" ${weekend ? `data-date="${key}" data-na="${safe(teamNA.length ? `NA: ${teamNA.join(", ")}` : "No NA submitted")}" data-selectable="${canSelectDate}" aria-pressed="${na}" aria-disabled="${!canSelectDate}"` : "disabled"}>${weekend ? `${weekendHeader}${assignedHtml}` : `<span class="day-number weekday-number">${day}</span>`}</button>`;
   }
   $("calendar").innerHTML = html;
+  bindNATooltips();
   document.querySelectorAll("[data-date]").forEach((button) => button.addEventListener("click", () => {
+    if (!selectedPerson()) {
+      alert("Select your name before marking NA dates.");
+      return;
+    }
+    if (!isSubmissionOpen() || button.dataset.selectable !== "true") return;
     pendingNA.has(button.dataset.date) ? pendingNA.delete(button.dataset.date) : pendingNA.add(button.dataset.date);
     dirty = true; renderCalendar(); updateSaveState();
   }));
@@ -211,6 +257,7 @@ async function saveAvailability() {
   if (sharedMissing) { alert("Shared database is not configured yet. Do not collect NA dates until Supabase is connected."); return; }
   if (!isSubmissionOpen()) return;
   const person = $("personSelect").value, month = monthKey(shownMonth);
+  if (!person) { alert("Select your name before submitting availability."); return; }
   if (sharedMode) {
     try {
       await window.RosterBackend.saveAvailability(person, month, [...pendingNA]);
@@ -651,7 +698,7 @@ async function initializeSharedMode() {
     const remote = await window.RosterBackend.loadState();
     if (remote) state = normalizeState({ ...emptyState(), ...remote });
     displayNames = { ...displayNames, ...Object.fromEntries((remote.team || []).map((member) => [member.employee_code, member.full_name])) };
-    currentProfile = { role: "employee", employee_code: $("personSelect").value || PEOPLE[0], full_name: displayName($("personSelect").value || PEOPLE[0]) };
+    currentProfile = { role: "employee", employee_code: selectedPerson(), full_name: selectedPerson() ? displayName(selectedPerson()) : "Open team form" };
     loadPersonDraft(); renderAll();
   } catch (error) {
     $("backendStatus").textContent = "Connection error";
@@ -660,7 +707,7 @@ async function initializeSharedMode() {
 }
 
 function renderAll() { renderCalendar(); renderRoster(); renderSwap(); renderAdmin(); }
-setOptions($("personSelect"), teamOptions(sortByDisplayName(PEOPLE)), "");
+setOptions($("personSelect"), teamOptions(sortByDisplayName(PEOPLE)), "Select your name");
 loadPersonDraft(); renderAll(); updateClock();
 setInterval(() => {
   updateClock();
