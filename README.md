@@ -24,7 +24,7 @@ Then visit `http://localhost:8000`.
 - Each team member can mark weekend dates red (NA) and explicitly save their response.
 - Availability is editable only from 15th 11:00 AM IST until 28th 7:00 PM IST for the following month.
 - After cutoff, the scheduler can automatically generate the next roster.
-- Saves data in that browser with `localStorage`.
+- Demo mode can save data in that browser with `localStorage`; production requires Supabase shared storage.
 - Exports JSON snapshots for backup or committing to GitHub.
 - Exports a simple TXT proof file listing every person's name, NA dates and saved-response timestamp.
 - Generates a draft with 4 basic engineers + 1 signature engineer on Saturday, and 3 basic engineers + 1 signature engineer on Sunday.
@@ -38,11 +38,11 @@ Then visit `http://localhost:8000`.
 - Availability saves, roster generation, requests and decisions are recorded in an append-only audit log with before/after snapshots.
 - The audit history can be downloaded as a JSON file.
 
-For local testing outside the submission window, open `http://localhost:8000/?demo=1`. This override must not be enabled in production.
+For local testing outside the submission window, open `http://localhost:8000/?demo=1`. This override must not be enabled for real collection.
 
 ## Hosting and shared data
 
-GitHub Pages can host the static site for free. It cannot securely write user submissions back into the repository by itself. For a multi-user production version, use GitHub Pages for the UI plus a shared datastore (Supabase is a good fit), authentication, role-based admin access, database row-level security and an immutable audit table. A scheduled server job should freeze submissions and generate the roster at 28th 7:00 PM IST. Monthly finalized JSON, NA proof TXT files and audit exports may also be committed under `data/history/` as secondary archives.
+GitHub Pages can host the static site for free. It cannot securely write user submissions back into the repository by itself. For real multi-laptop collection, use GitHub Pages for the UI plus Supabase as the shared datastore. The production page intentionally locks submission controls when Supabase is not configured, so users do not accidentally save NA dates only on their own laptop. A scheduled server job should freeze submissions and generate the roster at 28th 7:00 PM IST. Monthly finalized JSON, NA proof TXT files and audit exports may also be committed under `data/history/` as secondary archives.
 
 Do not put a GitHub personal access token in browser JavaScript. It would be visible to every visitor.
 

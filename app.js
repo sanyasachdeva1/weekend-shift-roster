@@ -23,7 +23,10 @@ const realNow = query.get("mockDate") ? new Date(`${query.get("mockDate")}T12:00
 const appNow = () => query.get("mockDate") ? realNow : new Date();
 const demoMode = query.get("demo") === "1";
 const previewMode = query.get("preview") || "";
-const sharedMode = Boolean(window.RosterBackend?.configured && !demoMode && !previewMode);
+const sharedConfigured = Boolean(window.RosterBackend?.configured);
+const sharedRequired = location.hostname.endsWith("github.io") && !demoMode && !previewMode;
+const sharedMissing = sharedRequired && !sharedConfigured;
+const sharedMode = Boolean(sharedConfigured && !demoMode && !previewMode);
 let shownMonth = new Date(realNow.getFullYear(), realNow.getMonth() + 1, 1);
 let state = loadState();
 let pendingNA = new Set();
@@ -54,6 +57,7 @@ function nextRosterMonthKey() {
 const monthMinute = (parts) => ((parts.day - 1) * 24 * 60) + (parts.hour * 60) + parts.minute;
 const isCutoffPassed = () => monthMinute(istNowParts(appNow())) >= SUBMISSION_CUTOFF_MINUTE;
 const isSubmissionOpen = () => {
+  if (sharedMissing) return false;
   const parts = istNowParts(appNow());
   const minute = monthMinute(parts);
   const openMinute = parts.year === 2026 && parts.month === 7 ? JULY_2026_RESET_OPEN_MINUTE : SUBMISSION_OPEN_MINUTE;
@@ -62,7 +66,7 @@ const isSubmissionOpen = () => {
 
 function emptyState() { return { version: 2, availability: {}, submissions: {}, rosters: {}, swapRequests: [], audit: [] }; }
 function loadState() {
-  if (sharedMode) return emptyState();
+  if (sharedMode || sharedMissing) return emptyState();
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     return normalizeState({ ...emptyState(), ...saved, swapRequests: saved?.swapRequests || [], audit: saved?.audit || [] });
@@ -76,9 +80,9 @@ function normalizeState(data) {
   }));
   return data;
 }
-function persist() { if (!sharedMode) localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function persist() { if (!sharedMode && !sharedMissing) localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 function audit(action, actor, details, before = null, after = null) {
-  if (sharedMode) return;
+  if (sharedMode || sharedMissing) return;
   state.audit.push({ id: crypto.randomUUID(), at: new Date().toISOString(), action, actor, details, before, after });
   persist();
 }
@@ -139,6 +143,14 @@ function updateClock() {
   $("liveDate").textContent = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(time);
 }
 function renderWindow() {
+  if (sharedMissing) {
+    $("windowNotice").classList.add("closed");
+    $("windowTitle").textContent = "Shared database setup required";
+    $("windowMessage").textContent = "Do not collect NA dates yet. This production page needs Supabase configured so submissions from all laptops save into one shared roster database.";
+    $("windowBadge").textContent = "Setup required";
+    $("saveButton").disabled = true;
+    return;
+  }
   const open = isSubmissionOpen();
   $("windowNotice").classList.toggle("closed", !open);
   $("windowTitle").textContent = open ? "Availability collection is open" : "Availability collection is closed";
@@ -196,6 +208,7 @@ function renderCalendar() {
   renderPeople(); renderWindow();
 }
 async function saveAvailability() {
+  if (sharedMissing) { alert("Shared database is not configured yet. Do not collect NA dates until Supabase is connected."); return; }
   if (!isSubmissionOpen()) return;
   const person = $("personSelect").value, month = monthKey(shownMonth);
   if (sharedMode) {
@@ -223,6 +236,7 @@ function weekendDates(monthDate) {
   return dates;
 }
 async function generateRoster(actor = "System scheduler") {
+  if (sharedMissing) { alert("Shared database is not configured yet. Roster generation is locked to avoid using incomplete local laptop data."); return; }
   if (sharedMode) await refreshSharedState(false);
   const month = monthKey(shownMonth), eligible = PEOPLE.filter((name) => !INACTIVE.has(name));
   const generated = RosterEngine.generate({ people: eligible, signaturePeople: SIGNATURE_PEOPLE.filter((name) => !INACTIVE.has(name)), monthDate: shownMonth, availability: state.availability, submissions: state.submissions, rosters: state.rosters });
@@ -440,6 +454,7 @@ async function revokeSwap(id) {
   persist(); renderCalendar(); renderRoster(); renderSwap(); renderAdmin();
 }
 async function submitSwap() {
+  if (sharedMissing) { alert("Shared database is not configured yet. Swap and cover requests need shared storage."); return; }
   const type = requestType();
   const request = { id: crypto.randomUUID(), type, requester: $("swapRequester").value, fromDate: $("swapFromDate").value, colleague: $("swapColleague").value, toDate: type === "cover" ? null : $("swapToDate").value, reason: $("swapReason").value.trim(), status: "awaiting-colleague", createdAt: new Date().toISOString() };
   if (!sameRosterGroup(request.requester, request.colleague)) { alert("Swap and cover requests must stay within the same group."); return; }
@@ -595,6 +610,7 @@ $("downloadAudit").addEventListener("click", () => downloadJSON({ exportedAt: ne
 $("finalizeButton").addEventListener("click", finalizeMonth);
 
 $("accountButton").addEventListener("click", async () => {
+  if (sharedMissing) { alert("Supabase is not configured yet. Add the project URL and public anon key to config.js first."); return; }
   if (currentProfile) { await window.RosterBackend.signOut(); location.reload(); }
   else $("authDialog").showModal();
 });
@@ -614,6 +630,15 @@ $("claimIdentity").addEventListener("click", async () => {
 });
 
 async function initializeSharedMode() {
+  $("backendStatus").textContent = sharedMode ? "Shared Supabase" : sharedMissing ? "Shared setup needed" : "Local demo";
+  $("backendStatus").className = `connection ${sharedMode ? "shared" : "local"}`;
+  if (sharedMissing) {
+    $("accountButton").textContent = "Setup required";
+    $("accountButton").disabled = true;
+    document.querySelectorAll("#availabilityPanel button, #swapPanel button, #adminPanel button, #availabilityPanel select, #swapPanel select, #adminPanel select, #adminPanel input").forEach((control) => control.disabled = true);
+    renderWindow();
+    return;
+  }
   if (!sharedMode) {
     return;
   }
