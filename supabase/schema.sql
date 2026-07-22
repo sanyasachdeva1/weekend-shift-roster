@@ -126,12 +126,85 @@ create table if not exists public.audit_log (
   after_data jsonb
 );
 
+create table if not exists public.employee_access_codes (
+  employee_code text primary key references public.team_members(employee_code) on delete cascade,
+  salt text not null,
+  code_hash text not null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.admin_access_codes (
+  admin_name text primary key,
+  salt text not null,
+  code_hash text not null,
+  active boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.employee_access_codes(employee_code,salt,code_hash) values
+('EMP001','937e30481fa9342b','37b6014351673a87686a27853c296c5c31dc764771110be17648977bc6d3c20d'),
+('EMP002','14132909fcf6e878','f78cf391401f62530a62f7c0b69848fd25b177b91fcdc5f08a6a0a6f110363f8'),
+('EMP003','5ed410ced088f53b','f262b254d55239e9c6db3c2dca4dbf468954df3fa97c7b66810c1a11fe11c844'),
+('EMP004','e9c3f41286ed06a1','151c1a082091307d5023515c83f99023bfc77a842ef67b2a54d22e9a2ee868a2'),
+('EMP005','d6ef3d2048c8bc94','3ef42338be6aa2d5b3168aac546d1b4c9bcee1e7e52eddbd4c55b15b26fc8c9c'),
+('EMP006','b28113a046b54170','f1547cf00be13b2cc0f88d59e0f0a658dd67aaf4f243eb25556eb6e0f282c38c'),
+('EMP007','9dd676a49b66f766','74e40b465bf2a54b05522406874df335bfa8858f0209ce918abea6ee7047bf96'),
+('EMP008','87dd90d274610ba4','bd54a79bb84f760b3d5e32a161b620fa5265a5b6c15be01af52e5eb1cf2a9b0e'),
+('EMP010','3e055927301a3291','8559a17859ce0f0ce6a26cc83c1e861d038ba1ba0c56cb93f16e530a808356bb'),
+('EMP011','6aca68d67cfa2fef','7bfc8285adcc97c163b972b1a0ec3f444a989be579aa5d9a517c7d65b5061f88'),
+('EMP013','935fea6014c6cc40','86cac2c5fb26038af1fc92a957e8177ad3a2b7a60fad9f21538752e5268fa134'),
+('EMP014','a0919d766d022c9e','bb1296f20503386a9c817c678ec78d089c6fa96ad8edef2123e4695dad399352'),
+('EMP015','8762656898c00f84','d60d1114c0cecc0503e6bc19614286d639d3b5781146839b7f91129294e1fbea'),
+('EMP016','0be53d29671ac29b','c2563005699106ce2a1a2d7c561343c7384c78b0abc5b80aa7e52f0ada4f1ee7'),
+('EMP017','9d49f75e73fa556a','961f37ad94caf73e74ca24241745842b602cb4c0db88741ebcb337e655ef312e'),
+('EMP018','6ef2ba6c93aa8248','733eb0dfa162efc126f59592fb80c22ee4e8eed6f43a1808c91f0673000ef363'),
+('EMP019','c851f18d664abe8b','b51e5499d4207a1706f1948f85c151eabe6901af8ba6b5d10bc2bfc38d01ad05'),
+('EMP020','f5c4f5c2f94fd06c','bfe4e24fb86070a303d5d033e7c87d107453a405e83821f9169d0271616862c3'),
+('EMP021','35f569a06eb68e38','4fc2bd21b6216b942810659d1e3b1eb22556ada0dc2ec545f51080ee55a2967a'),
+('EMP022','55666d6c60221672','6826aeeb0f877c92f790d7185a8846d0eb26aa43c857e46b7f279f0f8a488874'),
+('SIG001','af6320561bc04daa','d367f9f0cda0524661f8131d9b055207c4587a215162a180695d952aab8caf58'),
+('SIG002','c5966078268acba2','c8c09b2fd901bde51832dd3afdf800a9f63323c315abca206800bae2d21a7499'),
+('SIG003','9787702c8b9dcaff','bc186c62ffe839f4a12bc4666793bd0403e2c7bae595d4042bc8f521b8ca937c'),
+('SIG004','ddd222a00ed9cf17','2400abdfe6793b7d244e411505ae545385231083e46a7806542649b8eec47b87')
+on conflict(employee_code) do update set salt=excluded.salt,code_hash=excluded.code_hash,updated_at=now();
+
+insert into public.admin_access_codes(admin_name,salt,code_hash,active) values
+('Sanya Sachdeva','937e30481fa9342b','37b6014351673a87686a27853c296c5c31dc764771110be17648977bc6d3c20d',true),
+('Naveen Kumar M','3e055927301a3291','8559a17859ce0f0ce6a26cc83c1e861d038ba1ba0c56cb93f16e530a808356bb',true),
+('Simran Vyas','9d49f75e73fa556a','961f37ad94caf73e74ca24241745842b602cb4c0db88741ebcb337e655ef312e',true),
+('ISHANT VARSHNEY','f2760464066b1a8b','b374b38461e3a1bd37497eafb14bc9d11235f8157a597729633f34b554c31af3',true),
+('Saravanan Natarajan','85ca53f6f23fd3da','0ff62b21a946980acf6f86e17e05f16bde7ed6d8b76888487731e0b298da487d',true)
+on conflict(admin_name) do update set salt=excluded.salt,code_hash=excluded.code_hash,active=excluded.active,updated_at=now();
+
 create or replace function public.is_admin() returns boolean language sql stable security definer set search_path=public as $$
   select exists(select 1 from profiles where user_id=auth.uid() and role='admin' and active);
 $$;
 create or replace function public.current_member() returns public.team_members language sql stable security definer set search_path=public as $$
   select t from team_members t join profiles p on p.user_id=t.user_id where p.user_id=auth.uid() and p.active and t.active;
 $$;
+create or replace function public.verify_employee_access(p_employee_code text,p_access_code text) returns public.team_members language plpgsql stable security definer set search_path=public as $$
+declare member team_members;
+begin
+  select t.* into member
+  from team_members t
+  join employee_access_codes c on c.employee_code=t.employee_code
+  where t.employee_code=p_employee_code
+    and t.active
+    and encode(digest(c.salt||':'||upper(trim(coalesce(p_access_code,''))),'sha256'),'hex')=c.code_hash;
+  if member.id is null then raise exception 'Invalid personal code'; end if;
+  return member;
+end $$;
+create or replace function public.verify_admin_access(p_admin_name text,p_access_code text) returns text language plpgsql stable security definer set search_path=public as $$
+declare verified_name text;
+begin
+  select admin_name into verified_name
+  from admin_access_codes
+  where admin_name=p_admin_name
+    and active
+    and encode(digest(salt||':'||upper(trim(coalesce(p_access_code,''))),'sha256'),'hex')=code_hash;
+  if verified_name is null then raise exception 'Invalid admin code'; end if;
+  return verified_name;
+end $$;
 create or replace function public.has_weekend_conflict(p_roster jsonb,p_code text,p_candidate date,p_excluded date default null) returns boolean language sql immutable as $$
   select exists(
     select 1 from jsonb_array_elements(p_roster->'assignments') item
@@ -358,11 +431,11 @@ begin
   return result;
 end $$;
 
-create or replace function public.open_save_availability(p_employee_code text,p_month text,p_na_dates text[]) returns void language plpgsql security definer set search_path=public as $$
+drop function if exists public.open_save_availability(text,text,text[]);
+create or replace function public.open_save_availability(p_employee_code text,p_access_code text,p_month text,p_na_dates text[]) returns void language plpgsql security definer set search_path=public as $$
 declare member team_members; month_date date:=(p_month||'-01')::date; current_ist timestamp:=(now() at time zone 'Asia/Kolkata'); today_ist date:=current_ist::date; window_minute numeric; prior jsonb;
 begin
-  select * into member from team_members where employee_code=p_employee_code and active;
-  if member.id is null then raise exception 'Team member is not active'; end if;
+  member:=verify_employee_access(p_employee_code,p_access_code);
   window_minute:=((extract(day from current_ist)-1)*24*60)+(extract(hour from current_ist)*60)+extract(minute from current_ist);
   if window_minute < (((15-1)*24*60)+(11*60)) or window_minute >= (((28-1)*24*60)+(19*60)) or month_date<>date_trunc('month',today_ist+interval '1 month')::date then raise exception 'Submission window is closed'; end if;
   if exists(select 1 from unnest(p_na_dates)x where extract(isodow from x::date) not in (6,7) or x::date < month_date or x::date >= month_date + interval '1 month') then raise exception 'Only weekend dates in the roster month are allowed'; end if;
@@ -374,9 +447,19 @@ begin
   values(member.employee_code,member.full_name,'AVAILABILITY_SAVED','Availability saved for '||p_month,prior,to_jsonb(p_na_dates));
 end $$;
 
-create or replace function public.open_save_roster(p_month text,p_roster jsonb,p_actor_name text default 'Roster admin') returns void language plpgsql security definer set search_path=public as $$
-declare month_date date:=(p_month||'-01')::date; prior jsonb;
+drop function if exists public.open_save_roster(text,jsonb,text);
+create or replace function public.open_save_roster(p_month text,p_roster jsonb,p_actor_name text,p_access_code text) returns void language plpgsql security definer set search_path=public as $$
+declare month_date date:=(p_month||'-01')::date; prior jsonb; current_ist timestamp:=(now() at time zone 'Asia/Kolkata'); today_ist date:=current_ist::date; window_minute numeric; automatic_actor boolean;
 begin
+  p_actor_name:=coalesce(nullif(trim(p_actor_name),''),'Roster admin');
+  automatic_actor:=p_actor_name='Automatic cutoff scheduler';
+  if automatic_actor then
+    window_minute:=((extract(day from current_ist)-1)*24*60)+(extract(hour from current_ist)*60)+extract(minute from current_ist);
+    if window_minute < (((28-1)*24*60)+(19*60)) or month_date<>date_trunc('month',today_ist+interval '1 month')::date then raise exception 'Automatic roster save is not available before cutoff'; end if;
+    if exists(select 1 from rosters where roster_month=month_date) then raise exception 'Roster already exists for this month'; end if;
+  else
+    p_actor_name:=verify_admin_access(p_actor_name,p_access_code);
+  end if;
   select roster into prior from rosters where roster_month=month_date;
   insert into rosters(roster_month,status,roster) values(month_date,coalesce(p_roster->>'status','draft'),p_roster)
   on conflict(roster_month) do update set status=excluded.status,roster=excluded.roster,generated_at=now();
@@ -384,9 +467,11 @@ begin
   values(nullif(trim(p_actor_name),''),'ROSTER_SAVED','Roster saved for '||p_month,prior,p_roster);
 end $$;
 
-create or replace function public.open_finalize_roster(p_month text,p_actor_name text default 'Roster admin') returns void language plpgsql security definer set search_path=public as $$
+drop function if exists public.open_finalize_roster(text,text);
+create or replace function public.open_finalize_roster(p_month text,p_actor_name text,p_access_code text) returns void language plpgsql security definer set search_path=public as $$
 declare month_date date:=(p_month||'-01')::date; prior jsonb;
 begin
+  p_actor_name:=verify_admin_access(p_actor_name,p_access_code);
   select roster into prior from rosters where roster_month=month_date for update;
   if prior is null then raise exception 'Roster not found'; end if;
   update rosters set status='finalized',finalized_at=now(),roster=jsonb_set(jsonb_set(roster,'{status}','"finalized"'),'{finalizedAt}',to_jsonb(now())) where roster_month=month_date;
@@ -394,11 +479,11 @@ begin
   values(nullif(trim(p_actor_name),''),'ROSTER_FINALIZED','Finalized '||p_month,prior,(select roster from rosters where roster_month=month_date));
 end $$;
 
-create or replace function public.open_create_swap_request(p_request jsonb) returns uuid language plpgsql security definer set search_path=public as $$
+drop function if exists public.open_create_swap_request(jsonb);
+create or replace function public.open_create_swap_request(p_request jsonb,p_access_code text) returns uuid language plpgsql security definer set search_path=public as $$
 declare member team_members; request_id uuid; request_type text:=coalesce(p_request->>'type','swap');
 begin
-  select * into member from team_members where employee_code=p_request->>'requester' and active;
-  if member.id is null then raise exception 'Requester is not active'; end if;
+  member:=verify_employee_access(p_request->>'requester',p_access_code);
   if not exists(select 1 from team_members colleague where colleague.employee_code=p_request->>'colleague' and colleague.active and colleague.coverage_group=member.coverage_group) then raise exception 'Swap and cover requests must stay within the same active roster group'; end if;
   if request_type not in ('swap','cover') then raise exception 'Unsupported request type'; end if;
   if request_type='swap' and nullif(p_request->>'toDate','') is null then raise exception 'Swap requires both dates'; end if;
@@ -409,11 +494,11 @@ begin
   return request_id;
 end $$;
 
-create or replace function public.open_decide_colleague_swap_request(p_request_id uuid,p_colleague_code text,p_approved boolean) returns void language plpgsql security definer set search_path=public as $$
+drop function if exists public.open_decide_colleague_swap_request(uuid,text,boolean);
+create or replace function public.open_decide_colleague_swap_request(p_request_id uuid,p_colleague_code text,p_access_code text,p_approved boolean) returns void language plpgsql security definer set search_path=public as $$
 declare member team_members; req swap_requests; roster_row rosters; requester_code text; prior jsonb; assignments jsonb:='[]'; item jsonb; assigned jsonb; source_assigned jsonb; destination_assigned jsonb;
 begin
-  select * into member from team_members where employee_code=p_colleague_code and active;
-  if member.id is null then raise exception 'Colleague is not active'; end if;
+  member:=verify_employee_access(p_colleague_code,p_access_code);
   select * into req from swap_requests where id=p_request_id and colleague_code=member.employee_code and status='awaiting-colleague' for update;
   if req.id is null then raise exception 'Colleague approval request not found'; end if;
   select employee_code into requester_code from team_members where id=req.requester_id;
@@ -447,11 +532,11 @@ begin
   values(member.employee_code,member.full_name,case when req.request_type='cover' then 'COVER_APPROVED' else 'SWAP_APPROVED' end,case when req.request_type='cover' then 'Colleague approved cover and roster updated' else 'Colleague approved swap and roster updated' end,prior,(select roster from rosters where roster_month=roster_row.roster_month));
 end $$;
 
-create or replace function public.open_revoke_swap_request(p_request_id uuid,p_requester_code text) returns void language plpgsql security definer set search_path=public as $$
+drop function if exists public.open_revoke_swap_request(uuid,text);
+create or replace function public.open_revoke_swap_request(p_request_id uuid,p_requester_code text,p_access_code text) returns void language plpgsql security definer set search_path=public as $$
 declare member team_members; req swap_requests; roster_row rosters; prior jsonb; assignments jsonb:='[]'; item jsonb; assigned jsonb; source_assigned jsonb; destination_assigned jsonb;
 begin
-  select * into member from team_members where employee_code=p_requester_code and active;
-  if member.id is null then raise exception 'Requester is not active'; end if;
+  member:=verify_employee_access(p_requester_code,p_access_code);
   select * into req from swap_requests where id=p_request_id and requester_id=member.id and status in ('awaiting-colleague','colleague-approved','approved') for update;
   if req.id is null then raise exception 'Revocable swap not found'; end if;
   if req.status='approved' then
@@ -481,10 +566,10 @@ end $$;
 
 alter table profiles enable row level security; alter table team_members enable row level security; alter table identity_mapping_requests enable row level security;
 alter table availability enable row level security; alter table submissions enable row level security; alter table rosters enable row level security;
-alter table swap_requests enable row level security; alter table audit_log enable row level security;
+alter table swap_requests enable row level security; alter table audit_log enable row level security; alter table employee_access_codes enable row level security; alter table admin_access_codes enable row level security;
 revoke all on all tables in schema public from anon,authenticated;
 grant execute on function my_profile(),request_identity_mapping(text,text),get_mapping_requests(),decide_identity_mapping(uuid,boolean),get_roster_state(),save_my_availability(text,text,text[]),save_roster(text,jsonb),finalize_roster(text),create_swap_request(jsonb),decide_colleague_swap_request(uuid,boolean),revoke_swap_request(uuid),decide_swap_request(uuid,boolean) to authenticated;
-grant execute on function open_get_roster_state(),open_save_availability(text,text,text[]),open_save_roster(text,jsonb,text),open_finalize_roster(text,text),open_create_swap_request(jsonb),open_decide_colleague_swap_request(uuid,text,boolean),open_revoke_swap_request(uuid,text) to anon,authenticated;
+grant execute on function open_get_roster_state(),open_save_availability(text,text,text,text[]),open_save_roster(text,jsonb,text,text),open_finalize_roster(text,text,text),open_create_swap_request(jsonb,text),open_decide_colleague_swap_request(uuid,text,text,boolean),open_revoke_swap_request(uuid,text,text) to anon,authenticated;
 
 -- Bootstrap the first administrator after their first Google login using the auth user UUID:
 -- update profiles set role='admin' where user_id='<auth-user-uuid>';

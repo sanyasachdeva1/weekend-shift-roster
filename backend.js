@@ -32,12 +32,12 @@
     async requestIdentity(employeeCode, fullName) { return rpc("request_identity_mapping", { p_employee_code: employeeCode, p_full_name: fullName }); },
     async mappingRequests() { return rpc("get_mapping_requests"); },
     async decideIdentity(requestId, approved) { return rpc("decide_identity_mapping", { p_request_id: requestId, p_approved: approved }); },
-    async saveAvailability(employeeCode, month, dates) { return rpc("open_save_availability", { p_employee_code: employeeCode, p_month: month, p_na_dates: dates }); },
-    async saveRoster(month, roster) { return rpc("open_save_roster", { p_month: month, p_roster: roster, p_actor_name: roster.generatedBy || "Roster admin" }); },
-    async finalizeRoster(month, actorName = "Roster admin") { return rpc("open_finalize_roster", { p_month: month, p_actor_name: actorName }); },
-    async requestSwap(request) { return rpc("open_create_swap_request", { p_request: request }); },
-    async decideColleagueSwap(requestId, approved, colleagueCode) { return rpc("open_decide_colleague_swap_request", { p_request_id: requestId, p_colleague_code: colleagueCode, p_approved: approved }); },
-    async revokeSwap(requestId, requesterCode) { return rpc("open_revoke_swap_request", { p_request_id: requestId, p_requester_code: requesterCode }); },
+    async saveAvailability(employeeCode, accessCode, month, dates) { return rpc("open_save_availability", { p_employee_code: employeeCode, p_access_code: accessCode, p_month: month, p_na_dates: dates }); },
+    async saveRoster(month, roster, accessCode) { return rpc("open_save_roster", { p_month: month, p_roster: roster, p_actor_name: roster.generatedBy || "Roster admin", p_access_code: accessCode }); },
+    async finalizeRoster(month, actorName = "Roster admin", accessCode) { return rpc("open_finalize_roster", { p_month: month, p_actor_name: actorName, p_access_code: accessCode }); },
+    async requestSwap(request, accessCode) { return rpc("open_create_swap_request", { p_request: request, p_access_code: accessCode }); },
+    async decideColleagueSwap(requestId, approved, colleagueCode, accessCode) { return rpc("open_decide_colleague_swap_request", { p_request_id: requestId, p_colleague_code: colleagueCode, p_access_code: accessCode, p_approved: approved }); },
+    async revokeSwap(requestId, requesterCode, accessCode) { return rpc("open_revoke_swap_request", { p_request_id: requestId, p_requester_code: requesterCode, p_access_code: accessCode }); },
     async decideSwap(requestId, approved) { return rpc("decide_swap_request", { p_request_id: requestId, p_approved: approved }); },
   };
 })();

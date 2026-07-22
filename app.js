@@ -7,11 +7,11 @@ const sameRosterGroup = (a, b) => TEAM_ROLE[a] === TEAM_ROLE[b];
 const INACTIVE = new Set();
 const query = new URLSearchParams(location.search);
 const ADMIN_ACCOUNTS = [
-  { name: "Sanya Sachdeva", salt: "5c143b6c", hash: "45c6494d" },
-  { name: "Naveen Kumar M", salt: "264cfb4d", hash: "7170fa04" },
-  { name: "Simran Vyas", salt: "c29868bf", hash: "0023bf9d" },
-  { name: "ISHANT VARSHNEY", salt: "79cc8728", hash: "96a91250" },
-  { name: "Saravanan Natarajan", salt: "30766617", hash: "0c62ecbe" }
+  { name: "Sanya Sachdeva", salt: "31b74546aab47d75", hash: "5e0ccc05" },
+  { name: "Naveen Kumar M", salt: "ae2d3b7015a295d3", hash: "6fbf8792" },
+  { name: "Simran Vyas", salt: "46a76ff7d30d761b", hash: "60d9627d" },
+  { name: "ISHANT VARSHNEY", salt: "5e0e946905cafff1", hash: "e71a6024" },
+  { name: "Saravanan Natarajan", salt: "09289d69546f6c5d", hash: "c64fed11" }
 ];
 const STORAGE_KEY = query.get("storage") ? `weekend-roster-data-v4-${query.get("storage")}` : query.get("preview") ? `weekend-roster-data-v4-${query.get("preview")}` : "weekend-roster-data-v4";
 const ADMIN_SESSION_KEY = "weekend-roster-admin-session";
@@ -36,6 +36,7 @@ let identityRequests = [];
 let displayNames = Object.fromEntries(TEAM);
 let cutoffGenerationInProgress = false;
 let activeAdmin = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
+let activeAdminAccessCode = "";
 
 const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const monthKey = (date) => dateKey(date).slice(0, 7);
@@ -46,6 +47,7 @@ const displayName = (code) => displayNames[code] || code;
 const sortByDisplayName = (codes) => codes.slice().sort((a, b) => displayName(a).localeCompare(displayName(b), "en-IN", { sensitivity: "base" }));
 const teamOptions = (codes) => codes.map((value) => ({ value, label: displayName(value) }));
 const selectedPerson = () => $("personSelect")?.value || "";
+const cleanCode = (value) => value.trim().toUpperCase();
 function istNowParts(date = new Date()) {
   return Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
@@ -101,6 +103,11 @@ function adminActor() {
     alert("Unlock admin controls with your admin name and code first.");
     return null;
   }
+  if (sharedMode && !activeAdminAccessCode) {
+    alert("Re-enter your admin code to run protected admin actions.");
+    lockAdmin();
+    return null;
+  }
   return activeAdmin;
 }
 function adminAccount(name) { return ADMIN_ACCOUNTS.find((admin) => admin.name === name); }
@@ -114,7 +121,7 @@ function adminCodeHash(code, salt) {
 }
 function unlockAdmin() {
   const name = $("adminName").value;
-  const code = $("adminCode").value.trim();
+  const code = cleanCode($("adminCode").value);
   const account = adminAccount(name);
   const hash = account && code ? adminCodeHash(code, account.salt) : "";
   if (!account || hash !== account.hash) {
@@ -125,6 +132,7 @@ function unlockAdmin() {
     return;
   }
   activeAdmin = account.name;
+  activeAdminAccessCode = cleanCode(code);
   sessionStorage.setItem(ADMIN_SESSION_KEY, activeAdmin);
   $("adminCode").value = "";
   $("adminAccessMessage").textContent = "";
@@ -134,6 +142,7 @@ function unlockAdmin() {
 function lockAdmin() {
   if (activeAdmin) audit("ADMIN_LOCKED", activeAdmin, "Admin controls locked");
   activeAdmin = "";
+  activeAdminAccessCode = "";
   sessionStorage.removeItem(ADMIN_SESSION_KEY);
   renderAdmin();
 }
@@ -258,9 +267,11 @@ async function saveAvailability() {
   if (!isSubmissionOpen()) return;
   const person = $("personSelect").value, month = monthKey(shownMonth);
   if (!person) { alert("Select your name before submitting availability."); return; }
+  const accessCode = cleanCode($("personAccessCode").value);
+  if (sharedMode && !accessCode) { alert("Enter your personal code before submitting availability."); return; }
   if (sharedMode) {
     try {
-      await window.RosterBackend.saveAvailability(person, month, [...pendingNA]);
+      await window.RosterBackend.saveAvailability(person, accessCode, month, [...pendingNA]);
       dirty = false;
       await refreshSharedState();
     } catch (error) { alert(`Shared save failed: ${error.message}`); }
@@ -294,7 +305,7 @@ async function generateRoster(actor = "System scheduler") {
   audit(before ? "ROSTER_REGENERATED" : "ROSTER_GENERATED", actor, `${month} roster generated with ${warnings.length} warning(s)`, before, state.rosters[month]);
   if (sharedMode) {
     try {
-      await window.RosterBackend.saveRoster(month, state.rosters[month]);
+      await window.RosterBackend.saveRoster(month, state.rosters[month], activeAdminAccessCode);
       await refreshSharedState();
     } catch (error) { alert(`Shared roster save failed: ${error.message}`); }
     return;
@@ -444,8 +455,10 @@ function applyApprovedRequest(request, actor) {
 function decideColleagueSwap(id, approved) {
   const request = state.swapRequests.find((item) => item.id === id);
   if (!request || request.status !== "awaiting-colleague" || request.colleague !== $("swapRequester").value) return;
+  const accessCode = cleanCode($("swapAccessCode").value);
+  if (sharedMode && !accessCode) { alert("Enter your personal code before approving or declining."); return; }
   if (sharedMode) {
-    window.RosterBackend.decideColleagueSwap(id, approved, $("swapRequester").value)
+    window.RosterBackend.decideColleagueSwap(id, approved, $("swapRequester").value, accessCode)
       .then(() => refreshSharedState())
       .catch((error) => alert(`Shared colleague approval failed: ${error.message}`));
     return;
@@ -466,9 +479,11 @@ function decideColleagueSwap(id, approved) {
 async function revokeSwap(id) {
   const request = state.swapRequests.find((item) => item.id === id);
   if (!request || !["awaiting-colleague", "colleague-approved", "approved"].includes(request.status) || request.requester !== $("swapRequester").value) return;
+  const accessCode = cleanCode($("swapAccessCode").value);
+  if (sharedMode && !accessCode) { alert("Enter your personal code before revoking."); return; }
   if (sharedMode) {
     try {
-      await window.RosterBackend.revokeSwap(id, $("swapRequester").value);
+      await window.RosterBackend.revokeSwap(id, $("swapRequester").value, accessCode);
       await refreshSharedState();
     } catch (error) { alert(`Shared revocation failed: ${error.message}`); }
     return;
@@ -504,10 +519,12 @@ async function submitSwap() {
   if (sharedMissing) { alert("Shared database is not configured yet. Swap and cover requests need shared storage."); return; }
   const type = requestType();
   const request = { id: crypto.randomUUID(), type, requester: $("swapRequester").value, fromDate: $("swapFromDate").value, colleague: $("swapColleague").value, toDate: type === "cover" ? null : $("swapToDate").value, reason: $("swapReason").value.trim(), status: "awaiting-colleague", createdAt: new Date().toISOString() };
+  const accessCode = cleanCode($("swapAccessCode").value);
+  if (sharedMode && !accessCode) { alert("Enter your personal code before sending the request."); return; }
   if (!sameRosterGroup(request.requester, request.colleague)) { alert("Swap and cover requests must stay within the same group."); return; }
   if (sharedMode) {
     try {
-      await window.RosterBackend.requestSwap(request);
+      await window.RosterBackend.requestSwap(request, accessCode);
       $("swapMessage").textContent = `${type === "cover" ? "Cover request" : "Swap request"} sent to ${displayName(request.colleague)} for approval first.`;
       $("swapReason").value = "";
       await refreshSharedState();
@@ -579,7 +596,7 @@ async function finalizeMonth() {
   const month = monthKey(shownMonth), roster = state.rosters[month]; if (!roster) { alert("Generate the roster before finalizing it."); return; }
   if (sharedMode) {
     try {
-      await window.RosterBackend.finalizeRoster(month, admin);
+      await window.RosterBackend.finalizeRoster(month, admin, activeAdminAccessCode);
       await refreshSharedState();
     } catch (error) { alert(`Finalization failed: ${error.message}`); }
     return;
@@ -641,14 +658,14 @@ function importData(event) {
 }
 
 document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => { document.querySelectorAll(".tab, .panel").forEach((item) => item.classList.remove("active")); tab.classList.add("active"); $(tab.dataset.panel).classList.add("active"); }));
-$("personSelect").addEventListener("change", () => { loadPersonDraft(); renderCalendar(); });
+$("personSelect").addEventListener("change", () => { $("personAccessCode").value = ""; loadPersonDraft(); renderCalendar(); });
 $("prevMonth").addEventListener("click", () => { shownMonth = new Date(shownMonth.getFullYear(), shownMonth.getMonth() - 1, 1); loadPersonDraft(); renderAll(); });
 $("nextMonth").addEventListener("click", () => { shownMonth = new Date(shownMonth.getFullYear(), shownMonth.getMonth() + 1, 1); loadPersonDraft(); renderAll(); });
 $("saveButton").addEventListener("click", saveAvailability);
 $("generateButton").addEventListener("click", () => { const admin = adminActor(); if (admin) generateRoster(admin); });
 $("unlockAdmin").addEventListener("click", () => unlockAdmin());
 $("lockAdmin").addEventListener("click", lockAdmin);
-$("swapRequester").addEventListener("change", renderSwap); $("swapColleague").addEventListener("change", renderSwap); $("submitSwap").addEventListener("click", submitSwap);
+$("swapRequester").addEventListener("change", () => { $("swapAccessCode").value = ""; renderSwap(); }); $("swapColleague").addEventListener("change", renderSwap); $("submitSwap").addEventListener("click", submitSwap);
 $("swapFromDate").addEventListener("change", renderSwap); $("swapToDate").addEventListener("change", updateSwapButton);
 document.querySelectorAll('input[name="swapType"]').forEach((input) => input.addEventListener("change", renderSwap));
 $("exportButton").addEventListener("click", () => downloadJSON(state, `weekend-roster-${monthKey(shownMonth)}.json`));

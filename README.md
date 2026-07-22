@@ -42,7 +42,7 @@ For local testing outside the submission window, open `http://localhost:8000/?de
 
 ## Hosting and shared data
 
-GitHub Pages can host the static site for free. It cannot securely write user submissions back into the repository by itself. For real multi-laptop collection, use GitHub Pages for the UI plus Supabase as the shared datastore. The production page intentionally locks submission controls when Supabase is not configured, so users do not accidentally save NA dates only on their own laptop. The current production flow is an open team form: each person selects their own name and saves NA dates without a login. A scheduled server job should freeze submissions and generate the roster at 28th 7:00 PM IST. Monthly finalized JSON, NA proof TXT files and audit exports may also be committed under `data/history/` as secondary archives.
+GitHub Pages can host the static site for free. It cannot securely write user submissions back into the repository by itself. For real multi-laptop collection, use GitHub Pages for the UI plus Supabase as the shared datastore. The production page intentionally locks submission controls when Supabase is not configured, so users do not accidentally save NA dates only on their own laptop. The current production flow uses personal employee codes: each person selects their own name, enters their private code, and saves NA dates without Google login. A scheduled server job should freeze submissions and generate the roster at 28th 7:00 PM IST. Monthly finalized JSON, NA proof TXT files and audit exports may also be committed under `data/history/` as secondary archives.
 
 Do not put a GitHub personal access token in browser JavaScript. It would be visible to every visitor.
 
@@ -50,14 +50,14 @@ Do not put a GitHub personal access token in browser JavaScript. It would be vis
 
 1. Create a Supabase project and run `supabase/schema.sql` in its SQL editor.
 2. Copy `config.example.js` values into `config.js`, using the project URL and **public anon key** only.
-3. No Google/Auth provider is required for the open team-form workflow.
+3. No Google/Auth provider is required for the personal-code workflow.
 4. Create a GitHub repository, enable Pages from the default branch, and add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` if you later enable the monthly archive workflow.
 5. The included workflow runs monthly and commits finalized roster plus audit history into month-named files such as `data/history/2026-08-August.json`, with the matching NA proof at `data/history/2026-08-August-na-proof.txt`. The service-role key stays only in GitHub Actions secrets.
 
-The database—not the visitor's laptop—enforces that submissions are accepted only from 15th 11:00 AM IST until 28th 7:00 PM IST for the following month. Direct table access remains revoked; the page writes through limited Supabase RPC functions. Since this workflow intentionally has no login or employee code, the team relies on mindful name selection rather than identity enforcement.
+The database—not the visitor's laptop—enforces that submissions are accepted only from 15th 11:00 AM IST until 28th 7:00 PM IST for the following month. Direct table access remains revoked; the page writes through limited Supabase RPC functions. Employee availability, swap/cover actions, roster generation and finalization require matching personal/admin codes checked by Supabase.
 
 ### Identity and change tracking
 
-- Employees select their name from the approved roster list and submit NA dates.
+- Employees select their name from the approved roster list and enter their private code before submitting NA dates.
 - Every save, swap/cover request, roster generation, approval, rejection and finalization writes the selected employee/admin display name, timestamp, before state and after state to `audit_log`.
 - Only database administrators/service-role maintenance can alter audit rows directly; the application exposes no table update or delete permission for them.
