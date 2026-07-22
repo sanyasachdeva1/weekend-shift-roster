@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#163a70">
   <title>Weekend Shift Roster</title>
-  <link rel="stylesheet" href="styles.css?v=18">
+  <link rel="stylesheet" href="styles.css?v=19">
 </head>
 <body>
   <header class="topbar">
@@ -40,6 +40,24 @@
     </div>
   </dialog>
 
+  <dialog id="employeeCodeDialog">
+    <form id="employeeCodeForm" class="auth-card" method="dialog">
+      <button id="closeEmployeeCode" class="dialog-close" type="button" aria-label="Close">×</button>
+      <p class="eyebrow dark">Personal access</p>
+      <h2 id="employeeCodeTitle">Unlock availability</h2>
+      <p>Enter your personal code to edit and save NA dates for your own name.</p>
+      <label>
+        Personal code
+        <input id="employeeCodeInput" type="password" autocomplete="off" placeholder="Enter your code">
+      </label>
+      <div class="dialog-actions">
+        <button id="unlockEmployee" class="primary" type="submit">Unlock my calendar</button>
+        <button id="cancelEmployeeUnlock" class="secondary" type="button">Cancel</button>
+      </div>
+      <p id="employeeCodeMessage" class="inline-message"></p>
+    </form>
+  </dialog>
+
   <main>
     <section id="windowNotice" class="notice">
       <div>
@@ -62,10 +80,7 @@
           Team member
           <select id="personSelect"></select>
         </label>
-        <label>
-          Personal code
-          <input id="personAccessCode" type="password" autocomplete="off" placeholder="Enter your code">
-        </label>
+        <div id="personUnlockStatus" class="unlock-status locked">Select your name to unlock editing.</div>
       <div class="month-switcher" aria-label="Calendar month controls">
         <button id="prevMonth" class="icon-button" type="button" aria-label="Previous month">←</button>
         <div>
@@ -173,9 +188,9 @@
       ["SIG003", "Jagannath Sivaramakrishnan", "signature"], ["SIG004", "Sandeep Hangaragi", "signature"]
     ];
   </script>
-  <script src="config.js?v=18"></script>
-  <script src="backend.js?v=18"></script>
-  <script src="roster-engine.js?v=18"></script>
-  <script src="app.js?v=18"></script>
+  <script src="config.js?v=19"></script>
+  <script src="backend.js?v=19"></script>
+  <script src="roster-engine.js?v=19"></script>
+  <script src="app.js?v=19"></script>
 </body>
 </html>

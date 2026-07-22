@@ -37,6 +37,9 @@ let displayNames = Object.fromEntries(TEAM);
 let cutoffGenerationInProgress = false;
 let activeAdmin = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
 let activeAdminAccessCode = "";
+let activeEmployee = "";
+let activeEmployeeAccessCode = "";
+let pendingEmployeeUnlock = "";
 
 const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const monthKey = (date) => dateKey(date).slice(0, 7);
@@ -48,6 +51,7 @@ const sortByDisplayName = (codes) => codes.slice().sort((a, b) => displayName(a)
 const teamOptions = (codes) => codes.map((value) => ({ value, label: displayName(value) }));
 const selectedPerson = () => $("personSelect")?.value || "";
 const cleanCode = (value) => value.trim().toUpperCase();
+const isPersonUnlocked = () => !sharedMode || (selectedPerson() && selectedPerson() === activeEmployee && Boolean(activeEmployeeAccessCode));
 function istNowParts(date = new Date()) {
   return Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
@@ -170,7 +174,17 @@ function renderWindow() {
     ? `Submit and save NA dates for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}. The window closes at 28th 7:00 PM IST.`
     : `The next-month form opens at ${openText} and closes at 28th 7:00 PM IST. After that, calendar changes are locked. ${demoMode ? "Demo override is active." : ""}`;
   $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 28th 7 PM" : "Closed";
-  $("saveButton").disabled = !open || !dirty || !selectedPerson();
+  $("saveButton").disabled = !open || !dirty || !selectedPerson() || !isPersonUnlocked();
+  const status = $("personUnlockStatus");
+  if (status) {
+    const person = selectedPerson();
+    status.textContent = !person
+      ? "Select your name to unlock editing."
+      : isPersonUnlocked()
+        ? `Unlocked for ${displayName(person)}`
+        : "Locked until your personal code is verified.";
+    status.className = `unlock-status ${isPersonUnlocked() ? "ready" : "locked"}`;
+  }
 }
 function updateSaveState() {
   $("saveState").textContent = dirty ? "Unsaved changes" : "No unsaved changes";
@@ -182,7 +196,7 @@ function setOptions(select, values, placeholder) {
 }
 function loadPersonDraft() {
   const person = selectedPerson();
-  if (!person) {
+  if (!person || !isPersonUnlocked()) {
     pendingNA = new Set();
     dirty = false;
     updateSaveState();
@@ -194,6 +208,55 @@ function loadPersonDraft() {
 }
 function renderPeople() {
   // Availability context is integrated into each weekend calendar cell.
+}
+function openEmployeeCodeDialog(employeeCode) {
+  if (!employeeCode || !sharedMode) return;
+  pendingEmployeeUnlock = employeeCode;
+  $("employeeCodeTitle").textContent = `Unlock ${displayName(employeeCode)}`;
+  $("employeeCodeInput").value = "";
+  $("employeeCodeMessage").textContent = "";
+  $("employeeCodeMessage").className = "inline-message";
+  $("employeeCodeDialog").showModal();
+  setTimeout(() => $("employeeCodeInput").focus(), 50);
+}
+function closeEmployeeCodeDialog(resetSelection = true) {
+  $("employeeCodeDialog").close();
+  $("employeeCodeInput").value = "";
+  $("employeeCodeMessage").textContent = "";
+  pendingEmployeeUnlock = "";
+  if (resetSelection && !isPersonUnlocked()) {
+    $("personSelect").value = "";
+    loadPersonDraft();
+    renderCalendar();
+  }
+}
+async function unlockSelectedEmployee(event) {
+  event?.preventDefault();
+  const employeeCode = pendingEmployeeUnlock || selectedPerson();
+  const accessCode = cleanCode($("employeeCodeInput").value);
+  if (!employeeCode) { closeEmployeeCodeDialog(); return; }
+  if (!accessCode) {
+    $("employeeCodeMessage").textContent = "Enter your personal code.";
+    $("employeeCodeMessage").className = "inline-message error";
+    return;
+  }
+  try {
+    if (sharedMode) await window.RosterBackend.verifyEmployee(employeeCode, accessCode);
+    activeEmployee = employeeCode;
+    activeEmployeeAccessCode = accessCode;
+    pendingEmployeeUnlock = "";
+    $("employeeCodeDialog").close();
+    $("employeeCodeInput").value = "";
+    loadPersonDraft();
+    renderCalendar();
+  } catch (error) {
+    activeEmployee = "";
+    activeEmployeeAccessCode = "";
+    $("employeeCodeMessage").textContent = error.message || "Invalid personal code.";
+    $("employeeCodeMessage").className = "inline-message error";
+    loadPersonDraft();
+    renderCalendar();
+  }
 }
 function naNamesForDate(key) { return PEOPLE.filter((code) => state.availability[code]?.[key.slice(0, 7)]?.[key]).map(displayName); }
 function bindNATooltips() {
@@ -246,7 +309,7 @@ function renderCalendar() {
     const weekendHeader = row
       ? `<div class="day-top roster-day-top"><span class="day-number">${day}</span></div>`
       : `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">${person ? (na ? "Your NA" : "Available") : "Select name"} <span class="label-separator">•</span> ${teamNA.length} NA</span></div>`;
-    const canSelectDate = isSubmissionOpen() && Boolean(person);
+    const canSelectDate = isSubmissionOpen() && Boolean(person) && isPersonUnlocked();
     html += `<button class="day ${weekend ? "weekend" : ""} ${na ? "na" : ""} ${weekend && !canSelectDate ? "locked" : ""}" ${weekend ? `data-date="${key}" data-na="${safe(teamNA.length ? `NA: ${teamNA.join(", ")}` : "No NA submitted")}" data-selectable="${canSelectDate}" aria-pressed="${na}" aria-disabled="${!canSelectDate}"` : "disabled"}>${weekend ? `${weekendHeader}${assignedHtml}` : `<span class="day-number weekday-number">${day}</span>`}</button>`;
   }
   $("calendar").innerHTML = html;
@@ -254,6 +317,10 @@ function renderCalendar() {
   document.querySelectorAll("[data-date]").forEach((button) => button.addEventListener("click", () => {
     if (!selectedPerson()) {
       alert("Select your name before marking NA dates.");
+      return;
+    }
+    if (!isPersonUnlocked()) {
+      openEmployeeCodeDialog(selectedPerson());
       return;
     }
     if (!isSubmissionOpen() || button.dataset.selectable !== "true") return;
@@ -267,8 +334,8 @@ async function saveAvailability() {
   if (!isSubmissionOpen()) return;
   const person = $("personSelect").value, month = monthKey(shownMonth);
   if (!person) { alert("Select your name before submitting availability."); return; }
-  const accessCode = cleanCode($("personAccessCode").value);
-  if (sharedMode && !accessCode) { alert("Enter your personal code before submitting availability."); return; }
+  if (!isPersonUnlocked()) { openEmployeeCodeDialog(person); return; }
+  const accessCode = activeEmployeeAccessCode;
   if (sharedMode) {
     try {
       await window.RosterBackend.saveAvailability(person, accessCode, month, [...pendingNA]);
@@ -658,7 +725,16 @@ function importData(event) {
 }
 
 document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => { document.querySelectorAll(".tab, .panel").forEach((item) => item.classList.remove("active")); tab.classList.add("active"); $(tab.dataset.panel).classList.add("active"); }));
-$("personSelect").addEventListener("change", () => { $("personAccessCode").value = ""; loadPersonDraft(); renderCalendar(); });
+$("personSelect").addEventListener("change", () => {
+  const person = selectedPerson();
+  if (person !== activeEmployee) {
+    activeEmployee = "";
+    activeEmployeeAccessCode = "";
+  }
+  loadPersonDraft();
+  renderCalendar();
+  if (person && sharedMode) openEmployeeCodeDialog(person);
+});
 $("prevMonth").addEventListener("click", () => { shownMonth = new Date(shownMonth.getFullYear(), shownMonth.getMonth() - 1, 1); loadPersonDraft(); renderAll(); });
 $("nextMonth").addEventListener("click", () => { shownMonth = new Date(shownMonth.getFullYear(), shownMonth.getMonth() + 1, 1); loadPersonDraft(); renderAll(); });
 $("saveButton").addEventListener("click", saveAvailability);
@@ -672,6 +748,9 @@ $("exportButton").addEventListener("click", () => downloadJSON(state, `weekend-r
 $("exportNAProof").addEventListener("click", () => exportNAProof());
 $("downloadAudit").addEventListener("click", () => downloadJSON({ exportedAt: new Date().toISOString(), entries: state.audit }, "weekend-roster-audit-log.json"));
 $("finalizeButton").addEventListener("click", finalizeMonth);
+$("employeeCodeForm").addEventListener("submit", unlockSelectedEmployee);
+$("closeEmployeeCode").addEventListener("click", () => closeEmployeeCodeDialog(true));
+$("cancelEmployeeUnlock").addEventListener("click", () => closeEmployeeCodeDialog(true));
 
 $("accountButton").addEventListener("click", async () => {
   if (sharedMissing) { alert("Supabase is not configured yet. Add the project URL and public anon key to config.js first."); return; }

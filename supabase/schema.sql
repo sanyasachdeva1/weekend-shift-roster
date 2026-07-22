@@ -182,7 +182,7 @@ $$;
 create or replace function public.current_member() returns public.team_members language sql stable security definer set search_path=public as $$
   select t from team_members t join profiles p on p.user_id=t.user_id where p.user_id=auth.uid() and p.active and t.active;
 $$;
-create or replace function public.verify_employee_access(p_employee_code text,p_access_code text) returns public.team_members language plpgsql stable security definer set search_path=public as $$
+create or replace function public.verify_employee_access(p_employee_code text,p_access_code text) returns public.team_members language plpgsql stable security definer set search_path=public,extensions as $$
 declare member team_members;
 begin
   select t.* into member
@@ -194,7 +194,7 @@ begin
   if member.id is null then raise exception 'Invalid personal code'; end if;
   return member;
 end $$;
-create or replace function public.verify_admin_access(p_admin_name text,p_access_code text) returns text language plpgsql stable security definer set search_path=public as $$
+create or replace function public.verify_admin_access(p_admin_name text,p_access_code text) returns text language plpgsql stable security definer set search_path=public,extensions as $$
 declare verified_name text;
 begin
   select admin_name into verified_name
@@ -204,6 +204,12 @@ begin
     and encode(digest(salt||':'||upper(trim(coalesce(p_access_code,''))),'sha256'),'hex')=code_hash;
   if verified_name is null then raise exception 'Invalid admin code'; end if;
   return verified_name;
+end $$;
+create or replace function public.open_verify_employee_access(p_employee_code text,p_access_code text) returns text language plpgsql stable security definer set search_path=public as $$
+declare member team_members;
+begin
+  member:=verify_employee_access(p_employee_code,p_access_code);
+  return member.full_name;
 end $$;
 create or replace function public.has_weekend_conflict(p_roster jsonb,p_code text,p_candidate date,p_excluded date default null) returns boolean language sql immutable as $$
   select exists(
@@ -569,7 +575,7 @@ alter table availability enable row level security; alter table submissions enab
 alter table swap_requests enable row level security; alter table audit_log enable row level security; alter table employee_access_codes enable row level security; alter table admin_access_codes enable row level security;
 revoke all on all tables in schema public from anon,authenticated;
 grant execute on function my_profile(),request_identity_mapping(text,text),get_mapping_requests(),decide_identity_mapping(uuid,boolean),get_roster_state(),save_my_availability(text,text,text[]),save_roster(text,jsonb),finalize_roster(text),create_swap_request(jsonb),decide_colleague_swap_request(uuid,boolean),revoke_swap_request(uuid),decide_swap_request(uuid,boolean) to authenticated;
-grant execute on function open_get_roster_state(),open_save_availability(text,text,text,text[]),open_save_roster(text,jsonb,text,text),open_finalize_roster(text,text,text),open_create_swap_request(jsonb,text),open_decide_colleague_swap_request(uuid,text,text,boolean),open_revoke_swap_request(uuid,text,text) to anon,authenticated;
+grant execute on function open_get_roster_state(),open_verify_employee_access(text,text),open_save_availability(text,text,text,text[]),open_save_roster(text,jsonb,text,text),open_finalize_roster(text,text,text),open_create_swap_request(jsonb,text),open_decide_colleague_swap_request(uuid,text,text,boolean),open_revoke_swap_request(uuid,text,text) to anon,authenticated;
 
 -- Bootstrap the first administrator after their first Google login using the auth user UUID:
 -- update profiles set role='admin' where user_id='<auth-user-uuid>';

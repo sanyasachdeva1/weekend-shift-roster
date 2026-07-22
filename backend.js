@@ -32,6 +32,7 @@
     async requestIdentity(employeeCode, fullName) { return rpc("request_identity_mapping", { p_employee_code: employeeCode, p_full_name: fullName }); },
     async mappingRequests() { return rpc("get_mapping_requests"); },
     async decideIdentity(requestId, approved) { return rpc("decide_identity_mapping", { p_request_id: requestId, p_approved: approved }); },
+    async verifyEmployee(employeeCode, accessCode) { return rpc("open_verify_employee_access", { p_employee_code: employeeCode, p_access_code: accessCode }); },
     async saveAvailability(employeeCode, accessCode, month, dates) { return rpc("open_save_availability", { p_employee_code: employeeCode, p_access_code: accessCode, p_month: month, p_na_dates: dates }); },
     async saveRoster(month, roster, accessCode) { return rpc("open_save_roster", { p_month: month, p_roster: roster, p_actor_name: roster.generatedBy || "Roster admin", p_access_code: accessCode }); },
     async finalizeRoster(month, actorName = "Roster admin", accessCode) { return rpc("open_finalize_roster", { p_month: month, p_actor_name: actorName, p_access_code: accessCode }); },
