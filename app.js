@@ -43,6 +43,7 @@ const parseDate = (key) => new Date(`${key}T12:00:00`);
 const initials = (name) => name.split(" ").slice(0, 2).map((part) => part[0]).join("");
 const safe = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 const displayName = (code) => displayNames[code] || code;
+const sortByDisplayName = (codes) => codes.slice().sort((a, b) => displayName(a).localeCompare(displayName(b), "en-IN", { sensitivity: "base" }));
 const teamOptions = (codes) => codes.map((value) => ({ value, label: displayName(value) }));
 function istNowParts(date = new Date()) {
   return Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
@@ -333,13 +334,13 @@ function renderSwap() {
   $("swapColleagueLabel").firstChild.textContent = mode === "cover" ? "Cover by" : "Swap with";
   $("swapToDateLabel").hidden = mode === "cover";
   $("submitSwap").textContent = mode === "cover" ? "Send cover request to colleague" : "Send request to colleague";
-  setOptions($("swapRequester"), teamOptions(PEOPLE.filter((name) => !INACTIVE.has(name))), ""); $("swapRequester").value = requester;
+  setOptions($("swapRequester"), teamOptions(sortByDisplayName(PEOPLE.filter((name) => !INACTIVE.has(name)))), ""); $("swapRequester").value = requester;
   const assignedDates = employeeDates(roster, requester);
   setOptions($("swapFromDate"), assignedDates, assignedDates.length ? "Select your assigned shift" : "No assigned dates");
   if ([...$("swapFromDate").options].some((option) => option.value === previousFrom)) $("swapFromDate").value = previousFrom;
   const fromDate = $("swapFromDate").value;
   const colleagues = mode === "cover" ? eligibleCoverColleagues(roster, requester, fromDate) : eligibleSwapColleagues(roster, requester, fromDate);
-  setOptions($("swapColleague"), teamOptions(colleagues), colleagues.length ? (mode === "cover" ? "Select someone to cover" : "Select an available colleague") : "No eligible colleagues");
+  setOptions($("swapColleague"), teamOptions(sortByDisplayName(colleagues)), colleagues.length ? (mode === "cover" ? "Select someone to cover" : "Select an available colleague") : "No eligible colleagues");
   if (colleagues.includes(previousColleague)) $("swapColleague").value = previousColleague;
   const colleague = $("swapColleague").value;
   const dates = mode === "cover" ? [] : eligibleSwapDates(roster, requester, colleague, fromDate);
@@ -659,7 +660,7 @@ async function initializeSharedMode() {
 }
 
 function renderAll() { renderCalendar(); renderRoster(); renderSwap(); renderAdmin(); }
-setOptions($("personSelect"), teamOptions(PEOPLE), "");
+setOptions($("personSelect"), teamOptions(sortByDisplayName(PEOPLE)), "");
 loadPersonDraft(); renderAll(); updateClock();
 setInterval(() => {
   updateClock();
