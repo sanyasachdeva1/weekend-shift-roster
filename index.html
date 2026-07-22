@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#163a70">
   <title>Weekend Shift Roster</title>
-  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body>
   <header class="topbar">
@@ -15,7 +15,7 @@
     </div>
     <div class="account-area">
       <span id="backendStatus" class="connection local">Local demo</span>
-      <button id="accountButton" class="account-button" type="button">Sign in</button>
+      <button id="accountButton" class="account-button" type="button">Database</button>
     </div>
     <div class="clock" aria-live="polite">
       <strong id="liveTime">--:--:--</strong>
@@ -27,9 +27,9 @@
   <dialog id="authDialog">
     <div id="authForm" class="auth-card">
       <button id="closeAuth" class="dialog-close" type="button" aria-label="Close">×</button>
-      <p class="eyebrow dark">Secure individual access</p>
-      <h2>Sign in to your roster</h2>
-      <p>Use your approved Google account. Your login is mapped to exactly one team member.</p>
+      <p class="eyebrow dark">Shared roster database</p>
+      <h2>No sign-in required</h2>
+      <p>This roster is configured as an open team form. Select your own name and submit only your own NA dates.</p>
       <button id="googleSignIn" class="google-button" type="button"><span class="google-g">G</span> Continue with Google</button>
       <p id="authMessage" class="inline-message"></p>
       <div id="claimSection" class="claim-section" hidden>
@@ -168,9 +168,9 @@
       ["SIG003", "Jagannath Sivaramakrishnan", "signature"], ["SIG004", "Sandeep Hangaragi", "signature"]
     ];
   </script>
-  <script src="config.js?v=15"></script>
-  <script src="backend.js?v=15"></script>
-  <script src="roster-engine.js?v=15"></script>
-  <script src="app.js?v=15"></script>
+  <script src="config.js?v=16"></script>
+  <script src="backend.js?v=16"></script>
+  <script src="roster-engine.js?v=16"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

@@ -32,6 +32,28 @@ insert into public.team_members(employee_code,coverage_group) values
 ('SIG001','signature'),('SIG002','signature'),('SIG003','signature'),('SIG004','signature')
 on conflict(employee_code) do update set coverage_group=excluded.coverage_group;
 update public.team_members set active=false where employee_code in ('EMP009','EMP012');
+update public.team_members set full_name='Sanya Sachdeva', coverage_group='basic', active=true where employee_code='EMP001';
+update public.team_members set full_name='Aarushi Garg', coverage_group='basic', active=true where employee_code='EMP002';
+update public.team_members set full_name='Anmol Singh', coverage_group='basic', active=true where employee_code='EMP003';
+update public.team_members set full_name='Charan Sai Kumar Reddy Gondesi', coverage_group='basic', active=true where employee_code='EMP004';
+update public.team_members set full_name='Goutham Reddy Akula', coverage_group='basic', active=true where employee_code='EMP005';
+update public.team_members set full_name='Hariprasad Natarajan', coverage_group='basic', active=true where employee_code='EMP006';
+update public.team_members set full_name='Harish Kumar Thirumurugasakthivel', coverage_group='basic', active=true where employee_code='EMP007';
+update public.team_members set full_name='Kishan Ravindranath', coverage_group='basic', active=true where employee_code='EMP008';
+update public.team_members set full_name='Lakshmi R', coverage_group='basic', active=false where employee_code='EMP009';
+update public.team_members set full_name='Naveen Kumar M', coverage_group='basic', active=true where employee_code='EMP010';
+update public.team_members set full_name='Phiravin Arulmozhi', coverage_group='basic', active=true where employee_code='EMP011';
+update public.team_members set full_name='Prabu N', coverage_group='basic', active=false where employee_code='EMP012';
+update public.team_members set full_name='Rakshith L', coverage_group='basic', active=true where employee_code='EMP013';
+update public.team_members set full_name='Renjith Gopalakrishna Pillai', coverage_group='basic', active=true where employee_code='EMP014';
+update public.team_members set full_name='Sai Amrutha', coverage_group='basic', active=true where employee_code='EMP015';
+update public.team_members set full_name='Shreya Jain', coverage_group='basic', active=true where employee_code='EMP016';
+update public.team_members set full_name='Simran Vyas', coverage_group='basic', active=true where employee_code='EMP017';
+update public.team_members set full_name='Sri Pavan Gurajala', coverage_group='basic', active=true where employee_code='EMP018';
+update public.team_members set full_name='Sunil Tiwari', coverage_group='basic', active=true where employee_code='EMP019';
+update public.team_members set full_name='Swetha Lakshme Sridharan', coverage_group='basic', active=true where employee_code='EMP020';
+update public.team_members set full_name='Vritti Mehrotra', coverage_group='basic', active=true where employee_code='EMP021';
+update public.team_members set full_name='Yokeswaran Yohadhandan', coverage_group='basic', active=true where employee_code='EMP022';
 update public.team_members set full_name='Aneesh U', coverage_group='signature', active=true where employee_code='SIG001';
 update public.team_members set full_name='Ankit Thapliyal', coverage_group='signature', active=true where employee_code='SIG002';
 update public.team_members set full_name='Jagannath Sivaramakrishnan', coverage_group='signature', active=true where employee_code='SIG003';
@@ -324,11 +346,145 @@ begin
   return result;
 end $$;
 
+create or replace function public.open_get_roster_state() returns jsonb language plpgsql stable security definer set search_path=public as $$
+declare result jsonb:=jsonb_build_object('version',3,'availability','{}','submissions','{}','rosters','{}','swapRequests','[]','audit','[]','team','[]'); row_data record;
+begin
+  result:=jsonb_set(result,'{team}',coalesce((select jsonb_agg(jsonb_build_object('employee_code',employee_code,'full_name',full_name,'coverage_group',coverage_group) order by employee_code) from team_members where active and full_name is not null),'[]'));
+  for row_data in select t.employee_code,a.roster_month,jsonb_object_agg(a.na_date::text,true) dates from availability a join team_members t on t.id=a.employee_id where t.active group by t.employee_code,a.roster_month loop result:=jsonb_set(result,array['availability',row_data.employee_code,to_char(row_data.roster_month,'YYYY-MM')],row_data.dates,true); end loop;
+  for row_data in select t.employee_code,s.roster_month,s.saved_at from submissions s join team_members t on t.id=s.employee_id where t.active loop result:=jsonb_set(result,array['submissions',row_data.employee_code,to_char(row_data.roster_month,'YYYY-MM')],jsonb_build_object('savedAt',row_data.saved_at),true); end loop;
+  for row_data in select roster_month,roster from rosters where status in('draft','needs-review','published','finalized') loop result:=jsonb_set(result,array['rosters',to_char(row_data.roster_month,'YYYY-MM')],roster,true); end loop;
+  result:=jsonb_set(result,'{swapRequests}',coalesce((select jsonb_agg(jsonb_build_object('id',s.id,'type',s.request_type,'requester',t.employee_code,'colleague',s.colleague_code,'fromDate',s.from_date,'toDate',s.to_date,'reason',s.reason,'status',s.status,'createdAt',s.created_at)) from swap_requests s join team_members t on t.id=s.requester_id where t.active),'[]'));
+  result:=jsonb_set(result,'{audit}',coalesce((select jsonb_agg(jsonb_build_object('id',id,'at',occurred_at,'actor',coalesce(actor_name,actor_code),'action',action,'details',details) order by occurred_at) from audit_log),'[]'));
+  return result;
+end $$;
+
+create or replace function public.open_save_availability(p_employee_code text,p_month text,p_na_dates text[]) returns void language plpgsql security definer set search_path=public as $$
+declare member team_members; month_date date:=(p_month||'-01')::date; current_ist timestamp:=(now() at time zone 'Asia/Kolkata'); today_ist date:=current_ist::date; window_minute numeric; prior jsonb;
+begin
+  select * into member from team_members where employee_code=p_employee_code and active;
+  if member.id is null then raise exception 'Team member is not active'; end if;
+  window_minute:=((extract(day from current_ist)-1)*24*60)+(extract(hour from current_ist)*60)+extract(minute from current_ist);
+  if window_minute < (((15-1)*24*60)+(11*60)) or window_minute >= (((28-1)*24*60)+(19*60)) or month_date<>date_trunc('month',today_ist+interval '1 month')::date then raise exception 'Submission window is closed'; end if;
+  if exists(select 1 from unnest(p_na_dates)x where extract(isodow from x::date) not in (6,7) or x::date < month_date or x::date >= month_date + interval '1 month') then raise exception 'Only weekend dates in the roster month are allowed'; end if;
+  select coalesce(jsonb_agg(na_date order by na_date),'[]') into prior from availability where employee_id=member.id and roster_month=month_date;
+  delete from availability where employee_id=member.id and roster_month=month_date;
+  insert into availability(employee_id,roster_month,na_date) select member.id,month_date,x::date from unnest(p_na_dates)x;
+  insert into submissions(employee_id,roster_month) values(member.id,month_date) on conflict(employee_id,roster_month) do update set saved_at=now();
+  insert into audit_log(actor_code,actor_name,action,details,before_data,after_data)
+  values(member.employee_code,member.full_name,'AVAILABILITY_SAVED','Availability saved for '||p_month,prior,to_jsonb(p_na_dates));
+end $$;
+
+create or replace function public.open_save_roster(p_month text,p_roster jsonb,p_actor_name text default 'Roster admin') returns void language plpgsql security definer set search_path=public as $$
+declare month_date date:=(p_month||'-01')::date; prior jsonb;
+begin
+  select roster into prior from rosters where roster_month=month_date;
+  insert into rosters(roster_month,status,roster) values(month_date,coalesce(p_roster->>'status','draft'),p_roster)
+  on conflict(roster_month) do update set status=excluded.status,roster=excluded.roster,generated_at=now();
+  insert into audit_log(actor_name,action,details,before_data,after_data)
+  values(nullif(trim(p_actor_name),''),'ROSTER_SAVED','Roster saved for '||p_month,prior,p_roster);
+end $$;
+
+create or replace function public.open_finalize_roster(p_month text,p_actor_name text default 'Roster admin') returns void language plpgsql security definer set search_path=public as $$
+declare month_date date:=(p_month||'-01')::date; prior jsonb;
+begin
+  select roster into prior from rosters where roster_month=month_date for update;
+  if prior is null then raise exception 'Roster not found'; end if;
+  update rosters set status='finalized',finalized_at=now(),roster=jsonb_set(jsonb_set(roster,'{status}','"finalized"'),'{finalizedAt}',to_jsonb(now())) where roster_month=month_date;
+  insert into audit_log(actor_name,action,details,before_data,after_data)
+  values(nullif(trim(p_actor_name),''),'ROSTER_FINALIZED','Finalized '||p_month,prior,(select roster from rosters where roster_month=month_date));
+end $$;
+
+create or replace function public.open_create_swap_request(p_request jsonb) returns uuid language plpgsql security definer set search_path=public as $$
+declare member team_members; request_id uuid; request_type text:=coalesce(p_request->>'type','swap');
+begin
+  select * into member from team_members where employee_code=p_request->>'requester' and active;
+  if member.id is null then raise exception 'Requester is not active'; end if;
+  if not exists(select 1 from team_members colleague where colleague.employee_code=p_request->>'colleague' and colleague.active and colleague.coverage_group=member.coverage_group) then raise exception 'Swap and cover requests must stay within the same active roster group'; end if;
+  if request_type not in ('swap','cover') then raise exception 'Unsupported request type'; end if;
+  if request_type='swap' and nullif(p_request->>'toDate','') is null then raise exception 'Swap requires both dates'; end if;
+  insert into swap_requests(id,requester_id,request_type,colleague_code,from_date,to_date,reason,status)
+  values((p_request->>'id')::uuid,member.id,request_type,p_request->>'colleague',(p_request->>'fromDate')::date,nullif(p_request->>'toDate','')::date,p_request->>'reason','awaiting-colleague') returning id into request_id;
+  insert into audit_log(actor_code,actor_name,action,details,after_data)
+  values(member.employee_code,member.full_name,case when request_type='cover' then 'COVER_REQUESTED' else 'SWAP_REQUESTED' end,case when request_type='cover' then 'Cover request created' else 'Swap request created' end,p_request);
+  return request_id;
+end $$;
+
+create or replace function public.open_decide_colleague_swap_request(p_request_id uuid,p_colleague_code text,p_approved boolean) returns void language plpgsql security definer set search_path=public as $$
+declare member team_members; req swap_requests; roster_row rosters; requester_code text; prior jsonb; assignments jsonb:='[]'; item jsonb; assigned jsonb; source_assigned jsonb; destination_assigned jsonb;
+begin
+  select * into member from team_members where employee_code=p_colleague_code and active;
+  if member.id is null then raise exception 'Colleague is not active'; end if;
+  select * into req from swap_requests where id=p_request_id and colleague_code=member.employee_code and status='awaiting-colleague' for update;
+  if req.id is null then raise exception 'Colleague approval request not found'; end if;
+  select employee_code into requester_code from team_members where id=req.requester_id;
+  if not p_approved then
+    update swap_requests set status='rejected',colleague_decided_at=now(),decided_at=now() where id=req.id;
+    insert into audit_log(actor_code,actor_name,action,details,before_data,after_data)
+    values(member.employee_code,member.full_name,case when req.request_type='cover' then 'COVER_COLLEAGUE_REJECTED' else 'SWAP_COLLEAGUE_REJECTED' end,case when req.request_type='cover' then 'Colleague rejected cover request' else 'Colleague rejected swap request' end,to_jsonb(req),jsonb_build_object('approved',false));
+    return;
+  end if;
+  select * into roster_row from rosters where roster_month=date_trunc('month',req.from_date)::date for update;
+  if roster_row.roster_month is null then raise exception 'Roster not found'; end if; prior:=roster_row.roster;
+  select value->'assigned' into source_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.from_date::text;
+  if req.request_type='cover' then
+    if not (source_assigned ? requester_code) then raise exception 'Requester is no longer assigned on source date'; end if;
+    if source_assigned ? req.colleague_code then raise exception 'Employee already assigned on covered date'; end if;
+    if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date) then raise exception 'Cover creates a weekend-spacing conflict'; end if;
+  else
+    select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
+    if source_assigned ? req.colleague_code or destination_assigned ? requester_code then raise exception 'Employee already assigned on destination date'; end if;
+    if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,requester_code,req.to_date,req.from_date) then raise exception 'Swap creates a weekend-spacing conflict'; end if;
+  end if;
+  for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
+    assigned:=item->'assigned';
+    if (item->>'date')::date=req.from_date then assigned:=(select jsonb_agg(case when value#>>'{}'=requester_code then to_jsonb(req.colleague_code) else value end) from jsonb_array_elements(assigned)); end if;
+    if req.request_type='swap' and (item->>'date')::date=req.to_date then assigned:=(select jsonb_agg(case when value#>>'{}'=req.colleague_code then to_jsonb(requester_code) else value end) from jsonb_array_elements(assigned)); end if;
+    assignments:=assignments||jsonb_build_array(jsonb_set(item,'{assigned}',assigned));
+  end loop;
+  update rosters set roster=jsonb_set(roster,'{assignments}',assignments) where roster_month=roster_row.roster_month;
+  update swap_requests set status='approved',colleague_decided_at=now(),decided_by=null,decided_at=now() where id=req.id;
+  insert into audit_log(actor_code,actor_name,action,details,before_data,after_data)
+  values(member.employee_code,member.full_name,case when req.request_type='cover' then 'COVER_APPROVED' else 'SWAP_APPROVED' end,case when req.request_type='cover' then 'Colleague approved cover and roster updated' else 'Colleague approved swap and roster updated' end,prior,(select roster from rosters where roster_month=roster_row.roster_month));
+end $$;
+
+create or replace function public.open_revoke_swap_request(p_request_id uuid,p_requester_code text) returns void language plpgsql security definer set search_path=public as $$
+declare member team_members; req swap_requests; roster_row rosters; prior jsonb; assignments jsonb:='[]'; item jsonb; assigned jsonb; source_assigned jsonb; destination_assigned jsonb;
+begin
+  select * into member from team_members where employee_code=p_requester_code and active;
+  if member.id is null then raise exception 'Requester is not active'; end if;
+  select * into req from swap_requests where id=p_request_id and requester_id=member.id and status in ('awaiting-colleague','colleague-approved','approved') for update;
+  if req.id is null then raise exception 'Revocable swap not found'; end if;
+  if req.status='approved' then
+    select * into roster_row from rosters where roster_month=date_trunc('month',req.from_date)::date for update;
+    if roster_row.roster_month is null then raise exception 'Roster not found'; end if; prior:=roster_row.roster;
+    select value->'assigned' into source_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.from_date::text;
+    if req.request_type='cover' then
+      if not (source_assigned ? req.colleague_code) or source_assigned ? member.employee_code then raise exception 'Roster changed; approved cover cannot be safely reversed'; end if;
+      if has_weekend_conflict(roster_row.roster,member.employee_code,req.from_date,req.from_date) then raise exception 'Reversal creates a weekend-spacing conflict'; end if;
+    else
+      select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
+      if not (source_assigned ? req.colleague_code) or not (destination_assigned ? member.employee_code) or source_assigned ? member.employee_code or destination_assigned ? req.colleague_code then raise exception 'Roster changed; approved swap cannot be safely reversed'; end if;
+      if has_weekend_conflict(roster_row.roster,member.employee_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,req.colleague_code,req.to_date,req.from_date) then raise exception 'Reversal creates a weekend-spacing conflict'; end if;
+    end if;
+    for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
+      assigned:=item->'assigned';
+      if (item->>'date')::date=req.from_date then assigned:=(select jsonb_agg(case when value#>>'{}'=req.colleague_code then to_jsonb(member.employee_code) else value end) from jsonb_array_elements(assigned)); end if;
+      if req.request_type='swap' and (item->>'date')::date=req.to_date then assigned:=(select jsonb_agg(case when value#>>'{}'=member.employee_code then to_jsonb(req.colleague_code) else value end) from jsonb_array_elements(assigned)); end if;
+      assignments:=assignments||jsonb_build_array(jsonb_set(item,'{assigned}',assigned));
+    end loop;
+    update rosters set roster=jsonb_set(roster,'{assignments}',assignments) where roster_month=roster_row.roster_month;
+  end if;
+  update swap_requests set status='revoked',decided_at=now() where id=req.id;
+  insert into audit_log(actor_code,actor_name,action,details,before_data,after_data)
+  values(member.employee_code,member.full_name,case when req.request_type='cover' then 'COVER_REVOKED' else 'SWAP_REVOKED' end,'Requester revoked '||req.status||' '||req.request_type,coalesce(prior,to_jsonb(req)),case when req.status='approved' then (select roster from rosters where roster_month=roster_row.roster_month) else jsonb_build_object('status','revoked') end);
+end $$;
+
 alter table profiles enable row level security; alter table team_members enable row level security; alter table identity_mapping_requests enable row level security;
 alter table availability enable row level security; alter table submissions enable row level security; alter table rosters enable row level security;
 alter table swap_requests enable row level security; alter table audit_log enable row level security;
 revoke all on all tables in schema public from anon,authenticated;
 grant execute on function my_profile(),request_identity_mapping(text,text),get_mapping_requests(),decide_identity_mapping(uuid,boolean),get_roster_state(),save_my_availability(text,text,text[]),save_roster(text,jsonb),finalize_roster(text),create_swap_request(jsonb),decide_colleague_swap_request(uuid,boolean),revoke_swap_request(uuid),decide_swap_request(uuid,boolean) to authenticated;
+grant execute on function open_get_roster_state(),open_save_availability(text,text,text[]),open_save_roster(text,jsonb,text),open_finalize_roster(text,text),open_create_swap_request(jsonb),open_decide_colleague_swap_request(uuid,text,boolean),open_revoke_swap_request(uuid,text) to anon,authenticated;
 
 -- Bootstrap the first administrator after their first Google login using the auth user UUID:
 -- update profiles set role='admin' where user_id='<auth-user-uuid>';

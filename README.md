@@ -42,7 +42,7 @@ For local testing outside the submission window, open `http://localhost:8000/?de
 
 ## Hosting and shared data
 
-GitHub Pages can host the static site for free. It cannot securely write user submissions back into the repository by itself. For real multi-laptop collection, use GitHub Pages for the UI plus Supabase as the shared datastore. The production page intentionally locks submission controls when Supabase is not configured, so users do not accidentally save NA dates only on their own laptop. A scheduled server job should freeze submissions and generate the roster at 28th 7:00 PM IST. Monthly finalized JSON, NA proof TXT files and audit exports may also be committed under `data/history/` as secondary archives.
+GitHub Pages can host the static site for free. It cannot securely write user submissions back into the repository by itself. For real multi-laptop collection, use GitHub Pages for the UI plus Supabase as the shared datastore. The production page intentionally locks submission controls when Supabase is not configured, so users do not accidentally save NA dates only on their own laptop. The current production flow is an open team form: each person selects their own name and saves NA dates without a login. A scheduled server job should freeze submissions and generate the roster at 28th 7:00 PM IST. Monthly finalized JSON, NA proof TXT files and audit exports may also be committed under `data/history/` as secondary archives.
 
 Do not put a GitHub personal access token in browser JavaScript. It would be visible to every visitor.
 
@@ -50,18 +50,14 @@ Do not put a GitHub personal access token in browser JavaScript. It would be vis
 
 1. Create a Supabase project and run `supabase/schema.sql` in its SQL editor.
 2. Copy `config.example.js` values into `config.js`, using the project URL and **public anon key** only.
-3. In Supabase Authentication, enable the Google provider. Create Google OAuth credentials, copy the client ID/secret into Supabase, and add the Supabase callback URL shown there to Google's authorized redirect URIs. Add the GitHub Pages URL to Supabase's allowed redirect URLs.
-4. Ask each person to sign in once with their approved Gmail or Google Workspace account and select their full name from the approved list. Their account remains blocked until an administrator approves the mapping. After approval the application locks their identity to that Google account. Set only trusted administrators to `role='admin'`.
-5. Create a GitHub repository, enable Pages from the default branch, and add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
-6. The included workflow runs monthly and commits finalized roster plus audit history into month-named files such as `data/history/2026-08-August.json`, with the matching NA proof at `data/history/2026-08-August-na-proof.txt`. The service-role key stays only in GitHub Actions secrets.
+3. No Google/Auth provider is required for the open team-form workflow.
+4. Create a GitHub repository, enable Pages from the default branch, and add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` if you later enable the monthly archive workflow.
+5. The included workflow runs monthly and commits finalized roster plus audit history into month-named files such as `data/history/2026-08-August.json`, with the matching NA proof at `data/history/2026-08-August-na-proof.txt`. The service-role key stays only in GitHub Actions secrets.
 
-The database—not the visitor's laptop—enforces that submissions are accepted only from 15th 11:00 AM IST until 28th 7:00 PM IST for the following month. Row-level security prevents employees from saving another person's availability or using admin operations.
+The database—not the visitor's laptop—enforces that submissions are accepted only from 15th 11:00 AM IST until 28th 7:00 PM IST for the following month. Direct table access remains revoked; the page writes through limited Supabase RPC functions. Since this workflow intentionally has no login or employee code, the team relies on mindful name selection rather than identity enforcement.
 
 ### Identity and change tracking
 
-- Google performs authentication; Supabase issues the application session.
-- One authenticated Google `user_id` maps to one unique employee code and name.
-- Unmapped Google accounts can sign in but cannot read or write roster data.
-- Employees cannot choose another name in shared mode, even by modifying browser code: database functions compare the requested person with `auth.uid()`.
-- Every save, swap/cover request, roster generation, approval, rejection and finalization writes the authenticated user ID, display name, timestamp, before state and after state to `audit_log`.
-- Only database administrators/service-role maintenance can alter audit rows; the application exposes no update or delete permission for them.
+- Employees select their name from the approved roster list and submit NA dates.
+- Every save, swap/cover request, roster generation, approval, rejection and finalization writes the selected employee/admin display name, timestamp, before state and after state to `audit_log`.
+- Only database administrators/service-role maintenance can alter audit rows directly; the application exposes no table update or delete permission for them.

@@ -87,11 +87,10 @@ function audit(action, actor, details, before = null, after = null) {
   persist();
 }
 async function refreshSharedState(render = true) {
-  if (!sharedMode || !currentProfile?.employee_code) return false;
+  if (!sharedMode) return false;
   const remote = await window.RosterBackend.loadState();
   state = normalizeState({ ...emptyState(), ...remote });
   if (remote?.team) displayNames = { ...displayNames, ...Object.fromEntries(remote.team.map((member) => [member.employee_code, member.full_name])) };
-  if (currentProfile.role === "admin") identityRequests = await window.RosterBackend.mappingRequests() || [];
   if (render) { loadPersonDraft(); renderAll(); }
   return true;
 }
@@ -243,7 +242,7 @@ async function generateRoster(actor = "System scheduler") {
   const assignments = generated.assignments;
   const warnings = generated.warnings.map((warning) => PEOPLE.reduce((text, code) => text.replaceAll(code, displayName(code)), warning));
   const before = state.rosters[month] || null;
-  state.rosters[month] = { month, status: warnings.length ? "needs-review" : "published", generatedAt: new Date().toISOString(), assignments, warnings };
+  state.rosters[month] = { month, status: warnings.length ? "needs-review" : "published", generatedAt: new Date().toISOString(), generatedBy: actor, assignments, warnings };
   audit(before ? "ROSTER_REGENERATED" : "ROSTER_GENERATED", actor, `${month} roster generated with ${warnings.length} warning(s)`, before, state.rosters[month]);
   if (sharedMode) {
     try {
@@ -398,7 +397,7 @@ function decideColleagueSwap(id, approved) {
   const request = state.swapRequests.find((item) => item.id === id);
   if (!request || request.status !== "awaiting-colleague" || request.colleague !== $("swapRequester").value) return;
   if (sharedMode) {
-    window.RosterBackend.decideColleagueSwap(id, approved)
+    window.RosterBackend.decideColleagueSwap(id, approved, $("swapRequester").value)
       .then(() => refreshSharedState())
       .catch((error) => alert(`Shared colleague approval failed: ${error.message}`));
     return;
@@ -421,7 +420,7 @@ async function revokeSwap(id) {
   if (!request || !["awaiting-colleague", "colleague-approved", "approved"].includes(request.status) || request.requester !== $("swapRequester").value) return;
   if (sharedMode) {
     try {
-      await window.RosterBackend.revokeSwap(id);
+      await window.RosterBackend.revokeSwap(id, $("swapRequester").value);
       await refreshSharedState();
     } catch (error) { alert(`Shared revocation failed: ${error.message}`); }
     return;
@@ -532,7 +531,7 @@ async function finalizeMonth() {
   const month = monthKey(shownMonth), roster = state.rosters[month]; if (!roster) { alert("Generate the roster before finalizing it."); return; }
   if (sharedMode) {
     try {
-      await window.RosterBackend.finalizeRoster(month);
+      await window.RosterBackend.finalizeRoster(month, admin);
       await refreshSharedState();
     } catch (error) { alert(`Finalization failed: ${error.message}`); }
     return;
@@ -569,12 +568,12 @@ function buildNAProofText(month) {
   return `${lines.join("\n")}\n`;
 }
 async function exportNAProof(month = monthKey(shownMonth)) {
-  if (sharedMode && currentProfile?.employee_code) await refreshSharedState(false);
+  if (sharedMode) await refreshSharedState(false);
   downloadFile(buildNAProofText(month), `weekend-roster-na-proof-${month}.txt`, "text/plain");
 }
 async function autoExportNAProofAtCutoff() {
   if (!isCutoffPassed() || demoMode || previewMode) return;
-  if (sharedMode && !currentProfile?.employee_code) return;
+  if (sharedMode) await refreshSharedState(false);
   const month = nextRosterMonthKey();
   const key = `${STORAGE_KEY}-na-proof-exported-${month}`;
   if (localStorage.getItem(key)) return;
@@ -642,26 +641,16 @@ async function initializeSharedMode() {
   if (!sharedMode) {
     return;
   }
-  $("backendStatus").textContent = "Shared Supabase"; $("backendStatus").className = "connection shared";
+  $("backendStatus").textContent = "Shared Supabase";
+  $("backendStatus").className = "connection shared";
+  $("accountButton").textContent = "Shared database";
+  $("accountButton").disabled = true;
+  $("accountButton").hidden = true;
   try {
-    const session = await window.RosterBackend.session();
-    if (!session) { $("accountButton").textContent = "Sign in"; $("authDialog").showModal(); return; }
-    currentProfile = await window.RosterBackend.profile();
     const remote = await window.RosterBackend.loadState();
     if (remote) state = normalizeState({ ...emptyState(), ...remote });
-    $("accountButton").textContent = `${currentProfile?.full_name || "Google user"} · Sign out`;
-    if (!currentProfile?.employee_code) {
-      $("authMessage").textContent = "Your Google account is signed in but is not yet approved for a team member. Submit your name mapping for admin approval.";
-      $("authDialog").showModal();
-      $("claimSection").hidden = false;
-      document.querySelectorAll("#availabilityPanel button, #swapPanel button, #availabilityPanel select, #swapPanel select").forEach((control) => control.disabled = true);
-      return;
-    }
     displayNames = { ...displayNames, ...Object.fromEntries((remote.team || []).map((member) => [member.employee_code, member.full_name])) };
-    $("personSelect").value = currentProfile.employee_code; $("personSelect").disabled = true;
-    const adminTab = document.querySelector('[data-panel="adminPanel"]');
-    adminTab.hidden = currentProfile?.role !== "admin";
-    if (currentProfile?.role === "admin") identityRequests = await window.RosterBackend.mappingRequests() || [];
+    currentProfile = { role: "employee", employee_code: $("personSelect").value || PEOPLE[0], full_name: displayName($("personSelect").value || PEOPLE[0]) };
     loadPersonDraft(); renderAll();
   } catch (error) {
     $("backendStatus").textContent = "Connection error";
@@ -679,12 +668,12 @@ setInterval(() => {
   ensureCutoffRoster();
 }, 1000);
 setInterval(() => {
-  if (sharedMode && currentProfile?.employee_code && !dirty) {
+  if (sharedMode && !dirty) {
     refreshSharedState().catch((error) => console.error("Shared refresh failed", error));
   }
 }, 30000);
 window.addEventListener("focus", () => {
-  if (sharedMode && currentProfile?.employee_code && !dirty) {
+  if (sharedMode && !dirty) {
     refreshSharedState().catch((error) => console.error("Shared refresh failed", error));
   }
 });
