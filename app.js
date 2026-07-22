@@ -252,10 +252,8 @@ async function unlockSelectedEmployee(event) {
   } catch (error) {
     activeEmployee = "";
     activeEmployeeAccessCode = "";
-    $("employeeCodeMessage").textContent = error.message || "Invalid personal code.";
-    $("employeeCodeMessage").className = "inline-message error";
-    loadPersonDraft();
-    renderCalendar();
+    closeEmployeeCodeDialog(true);
+    alert(error.message || "Invalid personal code.");
   }
 }
 function naNamesForDate(key) { return PEOPLE.filter((code) => state.availability[code]?.[key.slice(0, 7)]?.[key]).map(displayName); }
