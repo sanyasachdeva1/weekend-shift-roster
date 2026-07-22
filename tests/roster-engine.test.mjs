@@ -35,4 +35,18 @@ for (const row of overridden.assignments) assert.equal(new Set(row.assigned).siz
 for (const code of fullTeam) assert.ok(overridden.monthlyLoad[code] >= 1, `${code} must receive monthly coverage`);
 for (const row of overridden.assignments) for (const code of row.assigned) assert.equal(hasScheduleConflict(overridden.assignments, code, row.date, row.date), false);
 
+const basicPeople = Array.from({ length: 20 }, (_, index) => `EMP${String(index + 1).padStart(3, "0")}`);
+const signaturePeople = ["SIG001", "SIG002", "SIG003", "SIG004"];
+const splitRoster = generate({ people: [...basicPeople, ...signaturePeople], signaturePeople, monthDate: new Date(2026, 7, 1), availability: {}, submissions: {}, rosters: {} });
+for (const row of splitRoster.assignments) {
+  const date = new Date(`${row.date}T12:00:00`);
+  const basicAssigned = row.assigned.filter((code) => code.startsWith("EMP"));
+  const signatureAssigned = row.assigned.filter((code) => code.startsWith("SIG"));
+  assert.equal(signatureAssigned.length, 1, `${row.date} must have exactly one signature engineer`);
+  assert.equal(basicAssigned.length, date.getDay() === 6 ? 4 : 3, `${row.date} must have the expected basic engineer count`);
+  assert.equal(row.assigned.length, date.getDay() === 6 ? 5 : 4);
+}
+for (const code of signaturePeople) assert.ok(splitRoster.monthlyLoad[code] >= 1, `${code} must receive signature coverage`);
+for (const row of splitRoster.assignments) for (const code of row.assigned) assert.equal(hasScheduleConflict(splitRoster.assignments, code, row.date, row.date), false);
+
 console.log("Roster engine tests passed");

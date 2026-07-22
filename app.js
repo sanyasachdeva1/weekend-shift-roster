@@ -1,5 +1,8 @@
 const TEAM = window.PUBLIC_TEAM || [];
 const PEOPLE = TEAM.map(([code]) => code);
+const TEAM_ROLE = Object.fromEntries(TEAM.map(([code, , role = "basic"]) => [code, role]));
+const SIGNATURE_PEOPLE = PEOPLE.filter((code) => TEAM_ROLE[code] === "signature");
+const sameRosterGroup = (a, b) => TEAM_ROLE[a] === TEAM_ROLE[b];
 // No hard-coded PTO: anyone who does not submit NA dates is available by default.
 const INACTIVE = new Set();
 const query = new URLSearchParams(location.search);
@@ -222,7 +225,7 @@ function weekendDates(monthDate) {
 async function generateRoster(actor = "System scheduler") {
   if (sharedMode) await refreshSharedState(false);
   const month = monthKey(shownMonth), eligible = PEOPLE.filter((name) => !INACTIVE.has(name));
-  const generated = RosterEngine.generate({ people: eligible, monthDate: shownMonth, availability: state.availability, submissions: state.submissions, rosters: state.rosters });
+  const generated = RosterEngine.generate({ people: eligible, signaturePeople: SIGNATURE_PEOPLE.filter((name) => !INACTIVE.has(name)), monthDate: shownMonth, availability: state.availability, submissions: state.submissions, rosters: state.rosters });
   const assignments = generated.assignments;
   const warnings = generated.warnings.map((warning) => PEOPLE.reduce((text, code) => text.replaceAll(code, displayName(code)), warning));
   const before = state.rosters[month] || null;
@@ -254,7 +257,7 @@ async function ensureCutoffRoster() {
 function renderRoster() {
   const roster = shownRoster();
   if (!roster) {
-    $("rosterSummary").innerHTML = `<span class="summary-pill">Roster pending cutoff</span><span class="summary-pill">Saturday needs 4</span><span class="summary-pill">Sunday needs 3</span>`;
+    $("rosterSummary").innerHTML = `<span class="summary-pill">Roster pending cutoff</span><span class="summary-pill">Saturday needs 4 + 1 signature</span><span class="summary-pill">Sunday needs 3 + 1 signature</span>`;
     $("warnings").hidden = true;
     return;
   }
@@ -289,7 +292,7 @@ const requestType = () => document.querySelector('input[name="swapType"]:checked
 function eligibleSwapColleagues(roster, requester, fromDate) {
   const sourceRow = roster?.assignments.find((row) => row.date === fromDate);
   if (!sourceRow) return [];
-  return PEOPLE.filter((person) => person !== requester && !sourceRow.assigned.includes(person) && eligibleSwapDates(roster, requester, person, fromDate).length);
+  return PEOPLE.filter((person) => sameRosterGroup(requester, person) && person !== requester && !sourceRow.assigned.includes(person) && eligibleSwapDates(roster, requester, person, fromDate).length);
 }
 function eligibleSwapDates(roster, requester, colleague, fromDate) {
   return (roster?.assignments || []).filter((row) => row.date !== fromDate
@@ -303,6 +306,7 @@ function eligibleCoverColleagues(roster, requester, fromDate) {
   const sourceRow = roster?.assignments.find((row) => row.date === fromDate);
   if (!sourceRow) return [];
   return PEOPLE.filter((person) => person !== requester
+    && sameRosterGroup(requester, person)
     && !sourceRow.assigned.includes(person)
     && !RosterEngine.hasScheduleConflict(roster.assignments, person, fromDate));
 }
@@ -352,6 +356,7 @@ function requestCards(requests, admin = false) {
   }).join("");
 }
 function applyApprovedRequest(request, actor) {
+  if (!sameRosterGroup(request.requester, request.colleague)) return "Swap and cover requests must stay within the same group.";
   const rosterEntry = Object.entries(state.rosters).find(([, roster]) => roster.assignments.some((row) => row.date === request.fromDate) && (request.type === "cover" || roster.assignments.some((row) => row.date === request.toDate)));
   if (!rosterEntry) return "The roster for this request no longer exists.";
   const [month, roster] = rosterEntry, oldRoster = structuredClone(roster);
@@ -437,6 +442,7 @@ async function revokeSwap(id) {
 async function submitSwap() {
   const type = requestType();
   const request = { id: crypto.randomUUID(), type, requester: $("swapRequester").value, fromDate: $("swapFromDate").value, colleague: $("swapColleague").value, toDate: type === "cover" ? null : $("swapToDate").value, reason: $("swapReason").value.trim(), status: "awaiting-colleague", createdAt: new Date().toISOString() };
+  if (!sameRosterGroup(request.requester, request.colleague)) { alert("Swap and cover requests must stay within the same group."); return; }
   if (sharedMode) {
     try {
       await window.RosterBackend.requestSwap(request);

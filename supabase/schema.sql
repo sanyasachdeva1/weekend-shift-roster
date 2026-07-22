@@ -8,14 +8,34 @@ create table if not exists public.profiles (
 );
 create table if not exists public.team_members (
   id uuid primary key default gen_random_uuid(),
-  employee_code text unique not null check (employee_code ~ '^EMP[0-9]{3}$'),
+  employee_code text unique not null check (employee_code ~ '^(EMP|SIG)[0-9]{3}$'),
   full_name text,
+  coverage_group text not null default 'basic' check(coverage_group in ('basic','signature')),
   user_id uuid unique references public.profiles(user_id),
   active boolean not null default true
 );
+alter table public.team_members add column if not exists coverage_group text not null default 'basic';
+do $$
+begin
+  alter table public.team_members drop constraint if exists team_members_employee_code_check;
+  if not exists (select 1 from pg_constraint where conname='team_members_employee_code_check') then
+    alter table public.team_members add constraint team_members_employee_code_check check(employee_code ~ '^(EMP|SIG)[0-9]{3}$');
+  end if;
+  if not exists (select 1 from pg_constraint where conname='team_members_coverage_group_check') then
+    alter table public.team_members add constraint team_members_coverage_group_check check(coverage_group in ('basic','signature'));
+  end if;
+end $$;
 insert into public.team_members(employee_code)
 select 'EMP'||lpad(n::text,3,'0') from generate_series(1,22) n
 on conflict(employee_code) do nothing;
+insert into public.team_members(employee_code,coverage_group) values
+('SIG001','signature'),('SIG002','signature'),('SIG003','signature'),('SIG004','signature')
+on conflict(employee_code) do update set coverage_group=excluded.coverage_group;
+update public.team_members set active=false where employee_code='EMP012';
+update public.team_members set full_name='Aneesh U', coverage_group='signature', active=true where employee_code='SIG001';
+update public.team_members set full_name='Ankit Thapliyal', coverage_group='signature', active=true where employee_code='SIG002';
+update public.team_members set full_name='Jagannath Sivaramakrishnan', coverage_group='signature', active=true where employee_code='SIG003';
+update public.team_members set full_name='Sandeep Hangaragi', coverage_group='signature', active=true where employee_code='SIG004';
 
 create table if not exists public.identity_mapping_requests (
   id uuid primary key default gen_random_uuid(),
@@ -181,6 +201,7 @@ declare member team_members; request_id uuid; request_type text:=coalesce(p_requ
 begin
   member:=current_member();
   if member.id is null or member.employee_code<>p_request->>'requester' then raise exception 'Requester does not match login'; end if;
+  if exists(select 1 from team_members colleague where colleague.employee_code=p_request->>'colleague' and colleague.coverage_group<>member.coverage_group) then raise exception 'Swap and cover requests must stay within the same roster group'; end if;
   if request_type not in ('swap','cover') then raise exception 'Unsupported request type'; end if;
   if request_type='swap' and nullif(p_request->>'toDate','') is null then raise exception 'Swap requires both dates'; end if;
   insert into swap_requests(id,requester_id,request_type,colleague_code,from_date,to_date,reason,status)

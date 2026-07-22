@@ -11,7 +11,7 @@
     ));
   }
 
-  function generate({ people, monthDate, availability, submissions, rosters }) {
+  function generateGroup({ people, monthDate, availability, submissions, rosters, requiredForDate }) {
     const month = monthOf(monthDate);
     const previousMonth = monthOf(new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1));
     const previousRoster = rosters[previousMonth];
@@ -23,7 +23,7 @@
     for (let day = 1; day <= days; day += 1) {
       const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
       if (![0, 6].includes(date.getDay())) continue;
-      assignments.push({ date: keyOf(date), required: date.getDay() === 6 ? 4 : 3, assigned: [], overrides: [] });
+      assignments.push({ date: keyOf(date), required: requiredForDate(date), assigned: [], overrides: [] });
     }
 
     // Phase 1: reserve one shift for every team member before any second shifts.
@@ -68,6 +68,34 @@
       if (row.assigned.length < row.required) warnings.push(`${row.date}: short ${row.required - row.assigned.length}`);
     }
     return { assignments, warnings, previousLoad, targetLoad, monthlyLoad };
+  }
+  function generate({ people, monthDate, availability, submissions, rosters, signaturePeople = [] }) {
+    const signatureSet = new Set(signaturePeople);
+    const basicPeople = people.filter((code) => !signatureSet.has(code));
+    if (!signaturePeople.length) return generateGroup({ people, monthDate, availability, submissions, rosters, requiredForDate: (date) => date.getDay() === 6 ? 4 : 3 });
+
+    const basic = generateGroup({ people: basicPeople, monthDate, availability, submissions, rosters, requiredForDate: (date) => date.getDay() === 6 ? 4 : 3 });
+    const signature = generateGroup({ people: signaturePeople, monthDate, availability, submissions, rosters, requiredForDate: () => 1 });
+    const signatureByDate = Object.fromEntries(signature.assignments.map((row) => [row.date, row]));
+    const assignments = basic.assignments.map((row) => {
+      const sig = signatureByDate[row.date] || { assigned: [], overrides: [] };
+      const saturday = parse(row.date).getDay() === 6;
+      return {
+        date: row.date,
+        required: row.required + 1,
+        requiredBasic: row.required,
+        requiredSignature: 1,
+        assigned: [...row.assigned, ...sig.assigned],
+        overrides: [...row.overrides, ...sig.overrides]
+      };
+    });
+    return {
+      assignments,
+      warnings: [...basic.warnings, ...signature.warnings],
+      previousLoad: { ...basic.previousLoad, ...signature.previousLoad },
+      targetLoad: { ...basic.targetLoad, ...signature.targetLoad },
+      monthlyLoad: { ...basic.monthlyLoad, ...signature.monthlyLoad }
+    };
   }
   root.RosterEngine = { generate, hasScheduleConflict };
 })(globalThis);
