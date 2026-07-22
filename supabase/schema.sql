@@ -31,7 +31,7 @@ on conflict(employee_code) do nothing;
 insert into public.team_members(employee_code,coverage_group) values
 ('SIG001','signature'),('SIG002','signature'),('SIG003','signature'),('SIG004','signature')
 on conflict(employee_code) do update set coverage_group=excluded.coverage_group;
-update public.team_members set active=false where employee_code='EMP012';
+update public.team_members set active=false where employee_code in ('EMP009','EMP012');
 update public.team_members set full_name='Aneesh U', coverage_group='signature', active=true where employee_code='SIG001';
 update public.team_members set full_name='Ankit Thapliyal', coverage_group='signature', active=true where employee_code='SIG002';
 update public.team_members set full_name='Jagannath Sivaramakrishnan', coverage_group='signature', active=true where employee_code='SIG003';
@@ -134,7 +134,7 @@ begin
   select * into p from profiles where user_id=auth.uid() and active;
   if p.user_id is null then raise exception 'Authenticated profile required'; end if;
   if exists(select 1 from team_members where user_id=auth.uid()) then raise exception 'Account already mapped'; end if;
-  if not exists(select 1 from team_members where employee_code=p_employee_code and user_id is null) then raise exception 'That employee is already mapped or unavailable'; end if;
+  if not exists(select 1 from team_members where employee_code=p_employee_code and user_id is null and active) then raise exception 'That employee is already mapped or unavailable'; end if;
   if length(trim(p_full_name)) not between 3 and 120 then raise exception 'Enter a valid full name'; end if;
   insert into identity_mapping_requests(user_id,employee_code,full_name) values(auth.uid(),p_employee_code,trim(p_full_name)) returning id into request_id;
   return request_id;
@@ -151,7 +151,7 @@ begin
   select * into req from identity_mapping_requests where id=p_request_id and status='pending' for update;
   if req.id is null then raise exception 'Pending mapping not found'; end if;
   if p_approved then
-    select * into member from team_members where employee_code=req.employee_code and user_id is null for update;
+    select * into member from team_members where employee_code=req.employee_code and user_id is null and active for update;
     if member.id is null then raise exception 'That employee was already assigned'; end if;
     update team_members set user_id=req.user_id,full_name=req.full_name where id=member.id;
   end if;
@@ -201,7 +201,7 @@ declare member team_members; request_id uuid; request_type text:=coalesce(p_requ
 begin
   member:=current_member();
   if member.id is null or member.employee_code<>p_request->>'requester' then raise exception 'Requester does not match login'; end if;
-  if exists(select 1 from team_members colleague where colleague.employee_code=p_request->>'colleague' and colleague.coverage_group<>member.coverage_group) then raise exception 'Swap and cover requests must stay within the same roster group'; end if;
+  if not exists(select 1 from team_members colleague where colleague.employee_code=p_request->>'colleague' and colleague.active and colleague.coverage_group=member.coverage_group) then raise exception 'Swap and cover requests must stay within the same active roster group'; end if;
   if request_type not in ('swap','cover') then raise exception 'Unsupported request type'; end if;
   if request_type='swap' and nullif(p_request->>'toDate','') is null then raise exception 'Swap requires both dates'; end if;
   insert into swap_requests(id,requester_id,request_type,colleague_code,from_date,to_date,reason,status)
