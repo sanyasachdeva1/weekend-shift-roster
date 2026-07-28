@@ -177,17 +177,18 @@ function renderWindow() {
   const roster = shownRoster();
   const generatedMode = Boolean(afterCutoff && roster);
   $("windowNotice").classList.toggle("closed", !open);
+  $("windowNotice").classList.toggle("compact", generatedMode);
   $("windowTitle").textContent = open ? "Not Available date collection is open" : afterCutoff ? (roster ? "Weekend roster is generated" : "Roster generation is pending") : "Not Available date collection is closed";
   const parts = istNowParts(appNow());
   const openText = parts.year === 2026 && parts.month === 7 ? "22nd 11:00 AM IST for this fresh collection cycle" : "15th 11:00 AM IST every month";
   $("windowMessage").textContent = open
     ? `Select and save only the dates you are Not Available to work for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}. The window closes at 28th 7:00 PM IST.`
     : afterCutoff && roster
-      ? `Not Available date changes are locked. Showing the generated weekend roster for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}.`
+      ? `Changes locked · ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })} roster is ready.`
     : afterCutoff
       ? `Not Available date changes are locked. Roster generation will appear here as soon as the cutoff job saves the roster.`
     : `The next-month form opens at ${openText} and closes at 28th 7:00 PM IST. After that, calendar changes are locked. ${demoMode ? "Demo override is active." : ""}`;
-  $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 28th 7 PM" : afterCutoff && roster ? "Roster generated" : afterCutoff ? "Roster pending" : "Closed";
+  $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 28th 7 PM" : afterCutoff && roster ? "Generated" : afterCutoff ? "Roster pending" : "Closed";
   $("saveButton").disabled = !open || !dirty || !selectedPerson() || !isPersonUnlocked();
   const controls = document.querySelector("#availabilityPanel .controls");
   if (controls) controls.hidden = generatedMode;
