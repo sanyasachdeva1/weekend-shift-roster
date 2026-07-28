@@ -45,7 +45,7 @@ update public.team_members set full_name='Naveen Kumar M', coverage_group='basic
 update public.team_members set full_name='Phiravin Arulmozhi', coverage_group='basic', active=true where employee_code='EMP011';
 update public.team_members set full_name='Prabu N', coverage_group='basic', active=false where employee_code='EMP012';
 update public.team_members set full_name='Rakshith L', coverage_group='basic', active=true where employee_code='EMP013';
-update public.team_members set full_name='Renjith Gopalakrishna Pillai', coverage_group='basic', active=true where employee_code='EMP014';
+update public.team_members set full_name='Renjith Gopalakrishna Pillai', coverage_group='basic', active=false where employee_code='EMP014';
 update public.team_members set full_name='Sai Amrutha', coverage_group='basic', active=true where employee_code='EMP015';
 update public.team_members set full_name='Shreya Jain', coverage_group='basic', active=true where employee_code='EMP016';
 update public.team_members set full_name='Simran Vyas', coverage_group='basic', active=true where employee_code='EMP017';
