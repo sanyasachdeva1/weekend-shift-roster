@@ -417,16 +417,27 @@ async function ensureCutoffRoster() {
 }
 function renderRoster() {
   const roster = shownRoster();
+  const generatedMode = Boolean(isShownMonthAfterCutoff() && roster);
+  const summary = $("rosterSummary");
+  const warnings = $("warnings");
+  if (generatedMode) {
+    summary.innerHTML = "";
+    summary.hidden = true;
+    warnings.hidden = !roster.warnings.length;
+    warnings.textContent = roster.warnings.join(" · ");
+    return;
+  }
+  summary.hidden = false;
   if (!roster) {
-    $("rosterSummary").innerHTML = `<span class="summary-pill">Roster pending cutoff</span><span class="summary-pill">Saturday needs 4 + 1 signature</span><span class="summary-pill">Sunday needs 3 + 1 signature</span>`;
-    $("warnings").hidden = true;
+    summary.innerHTML = `<span class="summary-pill">Roster pending cutoff</span><span class="summary-pill">Saturday needs 4 + 1 signature</span><span class="summary-pill">Sunday needs 3 + 1 signature</span>`;
+    warnings.hidden = true;
     return;
   }
   const ready = ["published", "finalized"].includes(roster.status);
   const assignedCount = roster.assignments.reduce((sum, row) => sum + row.assigned.length, 0);
   const peopleCovered = new Set(roster.assignments.flatMap((row) => row.assigned)).size;
-  $("rosterSummary").innerHTML = `<span class="summary-pill ${ready ? "ready" : "warning"}">${safe(roster.status === "finalized" ? "Finalized roster" : ready ? "Generated roster" : "Needs review")}</span><span class="summary-pill">${assignedCount} shifts planned</span><span class="summary-pill">${peopleCovered}/${PEOPLE.length} people scheduled</span>`;
-  $("warnings").hidden = !roster.warnings.length; $("warnings").textContent = roster.warnings.join(" · ");
+  summary.innerHTML = `<span class="summary-pill ${ready ? "ready" : "warning"}">${safe(roster.status === "finalized" ? "Finalized roster" : ready ? "Generated roster" : "Needs review")}</span><span class="summary-pill">${assignedCount} shifts planned</span><span class="summary-pill">${peopleCovered}/${PEOPLE.length} people scheduled</span>`;
+  warnings.hidden = !roster.warnings.length; warnings.textContent = roster.warnings.join(" · ");
 }
 function rosterIsValid(roster) {
   if (!roster?.assignments?.length) return false;
