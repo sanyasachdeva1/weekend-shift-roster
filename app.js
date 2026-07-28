@@ -486,15 +486,15 @@ function eligibleCoverColleagues(roster, requester, fromDate) {
 }
 function updateSwapButton() {
   const eligible = Boolean(currentSwapRoster()) && (demoMode || realNow.getDate() >= 1);
-  $("submitSwap").disabled = !eligible || !$("swapFromDate").value || !$("swapColleague").value || (requestType() === "swap" && !$("swapToDate").value);
+  $("submitSwap").disabled = !eligible || !$("swapRequester").value || !$("swapFromDate").value || !$("swapColleague").value || (requestType() === "swap" && !$("swapToDate").value);
 }
 function renderSwap() {
-  const requester = $("swapRequester").value || PEOPLE[0], previousFrom = $("swapFromDate").value, previousColleague = $("swapColleague").value, previousTo = $("swapToDate").value, roster = currentSwapRoster();
+  const requester = $("swapRequester").value, previousFrom = $("swapFromDate").value, previousColleague = $("swapColleague").value, previousTo = $("swapToDate").value, roster = currentSwapRoster();
   const mode = requestType();
   $("swapColleagueLabel").firstChild.textContent = mode === "cover" ? "Cover by" : "Swap with";
   $("swapToDateLabel").hidden = mode === "cover";
   $("submitSwap").textContent = mode === "cover" ? "Send cover request to colleague" : "Send request to colleague";
-  setOptions($("swapRequester"), teamOptions(sortByDisplayName(PEOPLE.filter((name) => !INACTIVE.has(name)))), ""); $("swapRequester").value = requester;
+  setOptions($("swapRequester"), teamOptions(sortByDisplayName(PEOPLE.filter((name) => !INACTIVE.has(name)))), "Select your name"); $("swapRequester").value = requester;
   const assignedDates = employeeDates(roster, requester);
   setOptions($("swapFromDate"), assignedDates, assignedDates.length ? "Select your assigned shift" : "No assigned dates");
   if ([...$("swapFromDate").options].some((option) => option.value === previousFrom)) $("swapFromDate").value = previousFrom;
@@ -614,6 +614,7 @@ async function submitSwap() {
   const type = requestType();
   const request = { id: crypto.randomUUID(), type, requester: $("swapRequester").value, fromDate: $("swapFromDate").value, colleague: $("swapColleague").value, toDate: type === "cover" ? null : $("swapToDate").value, reason: $("swapReason").value.trim(), status: "awaiting-colleague", createdAt: new Date().toISOString() };
   const accessCode = cleanCode($("swapAccessCode").value);
+  if (!request.requester) { alert("Select your name before sending the request."); return; }
   if (sharedMode && !accessCode) { alert("Enter your personal code before sending the request."); return; }
   if (!sameRosterGroup(request.requester, request.colleague)) { alert("Swap and cover requests must stay within the same group."); return; }
   if (sharedMode) {
