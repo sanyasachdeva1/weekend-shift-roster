@@ -175,6 +175,7 @@ function renderWindow() {
   const open = isSubmissionOpen();
   const afterCutoff = isShownMonthAfterCutoff();
   const roster = shownRoster();
+  const generatedMode = Boolean(afterCutoff && roster);
   $("windowNotice").classList.toggle("closed", !open);
   $("windowTitle").textContent = open ? "Not Available date collection is open" : afterCutoff ? (roster ? "Weekend roster is generated" : "Roster generation is pending") : "Not Available date collection is closed";
   const parts = istNowParts(appNow());
@@ -188,6 +189,12 @@ function renderWindow() {
     : `The next-month form opens at ${openText} and closes at 28th 7:00 PM IST. After that, calendar changes are locked. ${demoMode ? "Demo override is active." : ""}`;
   $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 28th 7 PM" : afterCutoff && roster ? "Roster generated" : afterCutoff ? "Roster pending" : "Closed";
   $("saveButton").disabled = !open || !dirty || !selectedPerson() || !isPersonUnlocked();
+  const controls = document.querySelector("#availabilityPanel .controls");
+  if (controls) controls.hidden = generatedMode;
+  const generatedHeader = $("generatedCalendarHeader");
+  if (generatedHeader) generatedHeader.hidden = !generatedMode;
+  const generatedTitle = $("generatedCalendarTitle");
+  if (generatedTitle) generatedTitle.textContent = shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
   const status = $("personUnlockStatus");
   if (status) {
     const person = selectedPerson();

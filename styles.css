@@ -73,6 +73,10 @@ button, .button { min-height: 38px; padding: 0 14px; display: inline-flex; align
 .secondary { border: 1px solid #b9c6d7; color: #254368; background: white; }
 .workspace { display: block; margin-top: 12px; }
 .calendar-card, .team-card, .roster-card { padding: 14px 18px; overflow-x: auto; }
+.generated-calendar-header { margin-bottom: 14px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #bdd7c9; border-radius: 14px; background: linear-gradient(180deg, #f3fbf7, #ffffff); }
+.generated-calendar-header div { display: grid; gap: 2px; }
+.generated-calendar-header span:first-child { color: var(--muted); font-size: 11px; font-weight: 850; text-transform: uppercase; letter-spacing: .04em; }
+.generated-calendar-header strong { font-size: 20px; letter-spacing: -.02em; }
 .legend { display: flex; gap: 20px; margin-bottom: 12px; color: var(--muted); font-size: 12px; }
 .legend span { display: flex; align-items: center; gap: 7px; }
 .dot { width: 10px; height: 10px; border-radius: 3px; }
