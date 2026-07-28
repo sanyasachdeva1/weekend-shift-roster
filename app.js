@@ -454,10 +454,13 @@ function rosterIsValid(roster) {
 }
 
 function currentSwapRoster() {
+  const shown = monthKey(shownMonth);
+  if (state.rosters[shown]) return state.rosters[shown];
+  const nextRosterMonth = nextRosterMonthKey();
+  if (state.rosters[nextRosterMonth]) return state.rosters[nextRosterMonth];
   const currentMonth = monthKey(new Date(realNow.getFullYear(), realNow.getMonth(), 1));
   if (state.rosters[currentMonth]) return state.rosters[currentMonth];
-  if (previewMode === "after") return state.rosters[monthKey(shownMonth)] || null;
-  return demoMode ? state.rosters[monthKey(shownMonth)] : null;
+  return demoMode ? state.rosters[shown] : null;
 }
 function employeeDates(roster, person) { return (roster?.assignments || []).filter((row) => row.assigned.includes(person)).map((row) => ({ value: row.date, label: parseDate(row.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) })); }
 function isNAOn(person, date) { return Boolean(state.availability[person]?.[date.slice(0, 7)]?.[date]); }
