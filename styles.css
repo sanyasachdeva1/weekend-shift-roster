@@ -136,7 +136,7 @@ th { color: var(--muted); background: #f7f9fc; font-size: 10px; text-transform: 
 .name-chip.override { color: #9b2432; background: var(--red-soft); }
 .shortage { color: var(--red); font-weight: 800; }
 .ok { color: var(--green); font-weight: 800; }
-.warnings { margin-top: 12px; padding: 12px; border-radius: 8px; color: #8a5200; background: #fff4d9; font-size: 12px; }
+.warnings { margin-top: 6px; padding: 7px 10px; border-radius: 8px; color: #8a5200; background: #fff4d9; font-size: 10px; line-height: 1.35; }
 .form-card { padding: 22px; }
 .form-intro { margin: -4px 0 20px; color: var(--muted); font-size: 13px; }
 .mode-toggle { margin: 0 0 18px; display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 12px; }
