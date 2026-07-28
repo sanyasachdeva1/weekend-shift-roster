@@ -3,7 +3,8 @@
 -- 1) remove EMP014/Renjith from the saved roster after he was removed from the active list;
 -- 2) apply the max-stretch generation rule: no same weekend and no Sunday -> next Saturday assignment;
 -- 3) keep consecutive Saturdays as a soft avoid-only rule;
--- 4) enforce basic engineer monthly load as minimum 1 and maximum 2 shifts.
+-- 4) enforce basic engineer monthly load as minimum 1 and maximum 2 shifts;
+-- 5) apply the soft Saturday/Sunday balance preference where it improves comfort without adding NA overrides.
 --
 -- This updates only public.rosters for 2026-08 and appends one audit row.
 -- It does not delete or modify availability, submissions, team_members, or access codes.
@@ -15,7 +16,7 @@ declare
     "month": "2026-08",
     "status": "needs-review",
     "generatedAt": "2026-07-28T19:20:51.094Z",
-    "generatedBy": "Manual safe regeneration after active list, max-stretch, and max-2 load correction",
+    "generatedBy": "Manual safe regeneration after active list, max-stretch, max-2 load, and Sat/Sun balance correction",
     "assignments": [
       {
         "date": "2026-08-01",
@@ -52,7 +53,7 @@ declare
         "required": 4,
         "requiredBasic": 3,
         "requiredSignature": 1,
-        "assigned": ["EMP018", "EMP008", "EMP006", "SIG002"],
+        "assigned": ["EMP018", "EMP008", "EMP016", "SIG002"],
         "overrides": []
       },
       {
@@ -60,7 +61,7 @@ declare
         "required": 5,
         "requiredBasic": 4,
         "requiredSignature": 1,
-        "assigned": ["EMP005", "EMP003", "EMP007", "EMP015", "SIG001"],
+        "assigned": ["EMP005", "EMP003", "EMP006", "EMP007", "SIG003"],
         "overrides": []
       },
       {
@@ -68,7 +69,7 @@ declare
         "required": 4,
         "requiredBasic": 3,
         "requiredSignature": 1,
-        "assigned": ["EMP017", "EMP011", "EMP020", "SIG003"],
+        "assigned": ["EMP017", "EMP011", "EMP020", "SIG001"],
         "overrides": []
       },
       {
@@ -151,7 +152,7 @@ begin
   values (
     'Codex safe roster correction',
     'ROSTER_SAVED',
-    'Corrected August 2026 roster after removing EMP014 and enforcing max-stretch plus max-2 basic load rules; NA entries were not modified',
+    'Corrected August 2026 roster after removing EMP014 and enforcing max-stretch, max-2 basic load, and Sat/Sun balance rules; NA entries were not modified',
     prior,
     corrected_roster
   );
