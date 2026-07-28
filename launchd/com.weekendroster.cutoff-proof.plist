@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.weekendroster.cutoff-proof</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/sanysach/Documents/Weekend Roster/scripts/run-cutoff-proof.sh</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Month</key>
+    <integer>7</integer>
+    <key>Day</key>
+    <integer>28</integer>
+    <key>Hour</key>
+    <integer>18</integer>
+    <key>Minute</key>
+    <integer>55</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/sanysach/Documents/Weekend Roster/logs/launchd-proof.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/sanysach/Documents/Weekend Roster/logs/launchd-proof.err.log</string>
+</dict>
+</plist>
