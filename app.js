@@ -325,8 +325,7 @@ function renderCalendar() {
   for (let day = 1; day <= new Date(year, month + 1, 0).getDate(); day += 1) {
     const date = new Date(year, month, day), weekend = [0, 6].includes(date.getDay()), key = dateKey(date), person = selectedPerson(), na = Boolean(person) && pendingNA.has(key), teamNA = weekend ? naNamesForDate(key) : [];
     const row = weekend ? roster?.assignments?.find((item) => item.date === key) : null;
-    const overrideNames = new Set((row?.overrides || []).map((item) => item.name));
-    const assignedHtml = row ? `<div class="assignment-list">${row.assigned.map((name) => `<span class="assignment-chip ${overrideNames.has(name) ? "override" : ""}" title="${overrideNames.has(name) ? "NA overridden because this was a latest response" : ""}">${safe(displayName(name))}${overrideNames.has(name) ? " · override" : ""}</span>`).join("")}</div>` : "";
+    const assignedHtml = row ? `<div class="assignment-list">${row.assigned.map((name) => `<span class="assignment-chip">${safe(displayName(name))}</span>`).join("")}</div>` : "";
     const weekendHeader = row
       ? `<div class="day-top roster-day-top"><span class="day-number">${day}</span></div>`
       : afterCutoff
