@@ -1,0 +1,26 @@
+name: Generate roster at cutoff
+
+on:
+  schedule:
+    # 7:02 PM IST on 28 July = 13:32 UTC.
+    - cron: "32 13 28 7 *"
+  workflow_dispatch:
+    inputs:
+      month:
+        description: Roster month to generate (YYYY-MM)
+        required: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Generate roster from Supabase data
+        run: node scripts/cutoff-ops.mjs generate
+        env:
+          ROSTER_MONTH: ${{ inputs.month }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
