@@ -42,6 +42,7 @@ let activeAdminAccessCode = "";
 let activeEmployee = "";
 let activeEmployeeAccessCode = "";
 let pendingEmployeeUnlock = "";
+let swapRequesterSelected = false;
 
 const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const monthKey = (date) => dateKey(date).slice(0, 7);
@@ -280,6 +281,9 @@ async function unlockSelectedEmployee(event) {
   }
 }
 function naNamesForDate(key) { return PEOPLE.filter((code) => state.availability[code]?.[key.slice(0, 7)]?.[key]).map(displayName); }
+function hideNATooltip() {
+  document.querySelector(".na-tooltip")?.classList.remove("visible");
+}
 function bindNATooltips() {
   let tooltip = document.querySelector(".na-tooltip");
   if (!tooltip) {
@@ -287,11 +291,9 @@ function bindNATooltips() {
     tooltip.className = "na-tooltip";
     document.body.appendChild(tooltip);
   }
-  const hide = () => {
-    tooltip.classList.remove("visible");
-  };
   const move = (event) => {
-    tooltip.textContent = event.currentTarget.dataset.na || "No NA submitted";
+    if (!event.currentTarget.dataset.na) { hideNATooltip(); return; }
+    tooltip.textContent = event.currentTarget.dataset.na;
     tooltip.classList.add("visible");
     const margin = 12;
     const rect = tooltip.getBoundingClientRect();
@@ -307,8 +309,8 @@ function bindNATooltips() {
   document.querySelectorAll("[data-na]").forEach((button) => {
     button.addEventListener("mouseenter", move);
     button.addEventListener("mousemove", move);
-    button.addEventListener("mouseleave", hide);
-    button.addEventListener("blur", hide);
+    button.addEventListener("mouseleave", hideNATooltip);
+    button.addEventListener("blur", hideNATooltip);
     button.addEventListener("focus", move);
   });
 }
@@ -333,7 +335,8 @@ function renderCalendar() {
         ? `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">Roster pending</span></div>`
       : `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">${person ? (na ? "Your NA" : "Available") : "Select name"} <span class="label-separator">•</span> ${teamNA.length} NA</span></div>`;
     const canSelectDate = isSubmissionOpen() && Boolean(person) && isPersonUnlocked();
-    html += `<button class="day ${weekend ? "weekend" : ""} ${na ? "na" : ""} ${weekend && !canSelectDate ? "locked" : ""}" ${weekend ? `data-date="${key}" data-na="${safe(teamNA.length ? `NA: ${teamNA.join(", ")}` : "No NA submitted")}" data-selectable="${canSelectDate}" aria-pressed="${na}" aria-disabled="${!canSelectDate}"` : "disabled"}>${weekend ? `${weekendHeader}${assignedHtml}` : `<span class="day-number weekday-number">${day}</span>`}</button>`;
+    const naAttribute = teamNA.length ? ` data-na="${safe(`NA: ${teamNA.join(", ")}`)}"` : "";
+    html += `<button class="day ${weekend ? "weekend" : ""} ${na ? "na" : ""} ${weekend && !canSelectDate ? "locked" : ""}" ${weekend ? `data-date="${key}"${naAttribute} data-selectable="${canSelectDate}" aria-pressed="${na}" aria-disabled="${!canSelectDate}"` : "disabled"}>${weekend ? `${weekendHeader}${assignedHtml}` : `<span class="day-number weekday-number">${day}</span>`}</button>`;
   }
   $("calendar").innerHTML = html;
   bindNATooltips();
@@ -489,7 +492,8 @@ function updateSwapButton() {
   $("submitSwap").disabled = !eligible || !$("swapRequester").value || !$("swapFromDate").value || !$("swapColleague").value || (requestType() === "swap" && !$("swapToDate").value);
 }
 function renderSwap() {
-  const requester = $("swapRequester").value, previousFrom = $("swapFromDate").value, previousColleague = $("swapColleague").value, previousTo = $("swapToDate").value, roster = currentSwapRoster();
+  hideNATooltip();
+  const requester = swapRequesterSelected ? $("swapRequester").value : "", previousFrom = $("swapFromDate").value, previousColleague = $("swapColleague").value, previousTo = $("swapToDate").value, roster = currentSwapRoster();
   const mode = requestType();
   $("swapColleagueLabel").firstChild.textContent = mode === "cover" ? "Cover by" : "Swap with";
   $("swapToDateLabel").hidden = mode === "cover";
@@ -752,7 +756,7 @@ function importData(event) {
   reader.readAsText(file);
 }
 
-document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => { document.querySelectorAll(".tab, .panel").forEach((item) => item.classList.remove("active")); tab.classList.add("active"); $(tab.dataset.panel).classList.add("active"); }));
+document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => { hideNATooltip(); document.querySelectorAll(".tab, .panel").forEach((item) => item.classList.remove("active")); tab.classList.add("active"); $(tab.dataset.panel).classList.add("active"); }));
 $("personSelect").addEventListener("change", () => {
   const person = selectedPerson();
   if (person !== activeEmployee) {
@@ -769,7 +773,7 @@ $("saveButton").addEventListener("click", saveAvailability);
 $("generateButton").addEventListener("click", () => { const admin = adminActor(); if (admin) generateRoster(admin); });
 $("unlockAdmin").addEventListener("click", () => unlockAdmin());
 $("lockAdmin").addEventListener("click", lockAdmin);
-$("swapRequester").addEventListener("change", () => { $("swapAccessCode").value = ""; renderSwap(); }); $("swapColleague").addEventListener("change", renderSwap); $("submitSwap").addEventListener("click", submitSwap);
+$("swapRequester").addEventListener("change", () => { swapRequesterSelected = Boolean($("swapRequester").value); $("swapAccessCode").value = ""; renderSwap(); }); $("swapColleague").addEventListener("change", renderSwap); $("submitSwap").addEventListener("click", submitSwap);
 $("swapFromDate").addEventListener("change", renderSwap); $("swapToDate").addEventListener("change", updateSwapButton);
 document.querySelectorAll('input[name="swapType"]').forEach((input) => input.addEventListener("change", renderSwap));
 $("exportButton").addEventListener("click", () => downloadJSON(state, `weekend-roster-${monthKey(shownMonth)}.json`));
