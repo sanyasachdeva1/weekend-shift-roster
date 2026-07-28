@@ -517,10 +517,10 @@ function requestCards(requests, admin = false) {
   const viewer = $("swapRequester")?.value;
   return requests.slice().reverse().map((request) => {
     const isCover = request.type === "cover";
-    const colleagueAction = !admin && request.status === "awaiting-colleague" && request.colleague === viewer ? `<div class="request-actions"><button class="primary colleague-approve" data-id="${request.id}">${isCover ? "Approve cover" : "Approve swap"}</button><button class="danger colleague-reject" data-id="${request.id}">Decline</button></div>` : "";
+    const colleagueAction = !admin && request.status === "awaiting-colleague" && request.colleague === viewer ? `<div class="request-actions"><button class="primary colleague-approve" data-id="${request.id}">${isCover ? "Approve cover with my code" : "Approve swap with my code"}</button><button class="danger colleague-reject" data-id="${request.id}">Decline with my code</button></div>` : "";
     const revokeAction = !admin && ["awaiting-colleague", "colleague-approved", "approved"].includes(request.status) && request.requester === viewer ? `<button class="danger revoke-swap" data-id="${request.id}">${request.status === "approved" ? "Revoke approved swap" : "Revoke request"}</button>` : "";
     const statusText = request.status === "awaiting-colleague" ? `Waiting for ${displayName(request.colleague)} approval` : request.status === "colleague-approved" ? "Colleague approved" : request.status;
-    const helper = !admin && request.status === "awaiting-colleague" && request.colleague !== viewer ? `<em class="request-hint">Select ${safe(displayName(request.colleague))} in “Your name” to approve or decline this request.</em>` : "";
+    const helper = !admin && request.status === "awaiting-colleague" && request.colleague !== viewer ? `<em class="request-hint">For approval, ${safe(displayName(request.colleague))} should select their own name, enter their personal code, then approve or decline.</em>` : "";
     const title = isCover ? `${safe(displayName(request.colleague))} covers for ${safe(displayName(request.requester))}` : `${safe(displayName(request.requester))} ↔ ${safe(displayName(request.colleague))}`;
     const detail = isCover ? `${safe(request.fromDate)} covered on behalf of ${safe(displayName(request.requester))}` : `${safe(request.fromDate)} exchanged with ${safe(request.toDate)}`;
     return `<div class="request-card"><div><strong>${title}</strong><p>${detail}</p><small>${safe(request.reason || "No reason supplied")} · ${new Date(request.createdAt).toLocaleString("en-IN")} · ${safe(statusText)}</small>${helper}</div>${colleagueAction || revokeAction}</div>`;
@@ -667,7 +667,7 @@ function renderAdmin() {
   $("adminAccessStatus").textContent = unlocked ? "Unlocked" : "Locked";
   $("adminAccessStatus").className = `status ${unlocked ? "ready" : "pending"}`;
   if (unlocked) $("adminSessionText").textContent = `${activeAdmin} has admin controls unlocked for this browser session.`;
-  $("adminRequests").innerHTML = `<div class="empty-state">Swap and cover changes are completed directly after colleague approval.</div>`;
+  $("adminRequests").innerHTML = `<div class="empty-state">Swap and cover changes are completed directly after colleague code approval. Full request activity is available in the change history below.</div>`;
   $("mappingRequests").innerHTML = identityRequests.length ? identityRequests.map((request) => `<div class="request-card"><div><strong>${safe(request.full_name)}</strong><small>Account mapping request · ${new Date(request.created_at).toLocaleString("en-IN")}</small></div><div class="request-actions"><button class="primary approve-mapping" data-id="${request.id}">Approve</button><button class="danger reject-mapping" data-id="${request.id}">Reject</button></div></div>`).join("") : `<div class="empty-state">No pending account mappings.</div>`;
   document.querySelectorAll(".approve-mapping").forEach((button) => button.addEventListener("click", () => decideIdentity(button.dataset.id, true)));
   document.querySelectorAll(".reject-mapping").forEach((button) => button.addEventListener("click", () => decideIdentity(button.dataset.id, false)));

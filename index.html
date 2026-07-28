@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#163a70">
   <title>Weekend Shift Roster</title>
-  <link rel="stylesheet" href="styles.css?v=33">
+  <link rel="stylesheet" href="styles.css?v=34">
 </head>
 <body>
   <header class="topbar">
@@ -124,7 +124,7 @@
 
     <section id="swapPanel" class="panel card form-card">
       <div class="section-heading"><div><span>After the 1st of the roster month</span><h2>Request a swap or cover</h2></div><span id="swapEligibility" class="status pending">Checking</span></div>
-      <p class="form-intro">Choose a two-person swap, or ask someone to cover one assigned shift on your behalf. Once the selected colleague approves, the roster updates automatically.</p>
+      <p class="form-intro">Choose a two-person swap, or ask someone to cover one assigned shift on your behalf. Your code is required to send the request; the selected colleague must select their own name and enter their own code to approve it. Once both sides approve, the roster updates automatically and the change is logged for admins.</p>
       <div class="mode-toggle" role="radiogroup" aria-label="Request type">
         <label>
           <input type="radio" name="swapType" value="swap" checked>
@@ -138,7 +138,7 @@
       <div class="swap-form-shell">
         <div class="form-grid">
           <label>Your name<select id="swapRequester"></select></label>
-          <label>Your code<input id="swapAccessCode" type="password" autocomplete="off" placeholder="Enter your code"></label>
+          <label>Your personal code<input id="swapAccessCode" type="password" autocomplete="off" placeholder="Enter your code"></label>
           <label>Your assigned date<select id="swapFromDate"></select></label>
           <label id="swapColleagueLabel">Swap with<select id="swapColleague"></select></label>
           <label id="swapToDateLabel">Their assigned date<select id="swapToDate"></select></label>
@@ -195,10 +195,10 @@
       ["SIG003", "Jagannath Sivaramakrishnan", "signature"], ["SIG004", "Sandeep Hangaragi", "signature"]
     ];
   </script>
-  <script src="config.js?v=33"></script>
-  <script src="backend.js?v=33"></script>
-  <script src="historical-rosters.js?v=33"></script>
-  <script src="roster-engine.js?v=33"></script>
-  <script src="app.js?v=33"></script>
+  <script src="config.js?v=34"></script>
+  <script src="backend.js?v=34"></script>
+  <script src="historical-rosters.js?v=34"></script>
+  <script src="roster-engine.js?v=34"></script>
+  <script src="app.js?v=34"></script>
 </body>
 </html>
