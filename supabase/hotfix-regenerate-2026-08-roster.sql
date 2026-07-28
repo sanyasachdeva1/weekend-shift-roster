@@ -2,7 +2,8 @@
 -- Purpose:
 -- 1) remove EMP014/Renjith from the saved roster after he was removed from the active list;
 -- 2) apply the max-stretch generation rule: no same weekend and no Sunday -> next Saturday assignment;
--- 3) keep consecutive Saturdays as a soft avoid-only rule.
+-- 3) keep consecutive Saturdays as a soft avoid-only rule;
+-- 4) enforce basic engineer monthly load as minimum 1 and maximum 2 shifts.
 --
 -- This updates only public.rosters for 2026-08 and appends one audit row.
 -- It does not delete or modify availability, submissions, team_members, or access codes.
@@ -14,7 +15,7 @@ declare
     "month": "2026-08",
     "status": "needs-review",
     "generatedAt": "2026-07-28T19:20:51.094Z",
-    "generatedBy": "Manual safe regeneration after active list and max-stretch rule correction",
+    "generatedBy": "Manual safe regeneration after active list, max-stretch, and max-2 load correction",
     "assignments": [
       {
         "date": "2026-08-01",
@@ -83,27 +84,55 @@ declare
         "required": 4,
         "requiredBasic": 3,
         "requiredSignature": 1,
-        "assigned": ["EMP006", "EMP021", "EMP007", "SIG001"],
-        "overrides": []
+        "assigned": ["EMP006", "EMP021", "EMP013", "SIG001"],
+        "overrides": [
+          {
+            "name": "EMP013",
+            "submittedAt": "2026-07-24T10:12:02.948378+00:00",
+            "reason": "Latest responder NA override"
+          }
+        ]
       },
       {
         "date": "2026-08-29",
         "required": 5,
         "requiredBasic": 4,
         "requiredSignature": 1,
-        "assigned": ["EMP002", "EMP010", "EMP003", "EMP011", "SIG003"],
-        "overrides": []
+        "assigned": ["EMP002", "EMP010", "EMP003", "EMP005", "SIG003"],
+        "overrides": [
+          {
+            "name": "EMP005",
+            "submittedAt": "2026-07-23T17:43:27.744033+00:00",
+            "reason": "Latest responder NA override"
+          }
+        ]
       },
       {
         "date": "2026-08-30",
         "required": 4,
         "requiredBasic": 3,
         "requiredSignature": 1,
-        "assigned": ["EMP015", "EMP021", "EMP007", "SIG002"],
-        "overrides": []
+        "assigned": ["EMP015", "EMP019", "EMP001", "SIG002"],
+        "overrides": [
+          {
+            "name": "EMP019",
+            "submittedAt": "2026-07-23T06:13:36.606876+00:00",
+            "reason": "Latest responder NA override"
+          },
+          {
+            "name": "EMP001",
+            "submittedAt": "2026-07-22T18:16:09.64049+00:00",
+            "reason": "Latest responder NA override"
+          }
+        ]
       }
     ],
-    "warnings": ["2026-08-02: EMP017 assigned by availability override"]
+    "warnings": [
+      "2026-08-02: EMP017 assigned by availability override",
+      "2026-08-23: EMP013 assigned by availability override",
+      "2026-08-29: EMP005 assigned by availability override",
+      "2026-08-30: EMP019, EMP001 assigned by availability override"
+    ]
   }'::jsonb;
 begin
   select roster into prior
@@ -122,7 +151,7 @@ begin
   values (
     'Codex safe roster correction',
     'ROSTER_SAVED',
-    'Corrected August 2026 roster after removing EMP014 and adding max-stretch generation rule; NA entries were not modified',
+    'Corrected August 2026 roster after removing EMP014 and enforcing max-stretch plus max-2 basic load rules; NA entries were not modified',
     prior,
     corrected_roster
   );

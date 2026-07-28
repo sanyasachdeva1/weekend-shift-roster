@@ -45,6 +45,7 @@ const overrideTimes = overridden.assignments[0].overrides.map((item) => new Date
 assert.deepEqual(overrideTimes, overrideTimes.slice().sort((a, b) => b - a));
 for (const row of overridden.assignments) assert.equal(new Set(row.assigned).size, row.assigned.length);
 for (const code of fullTeam) assert.ok(overridden.monthlyLoad[code] >= 1, `${code} must receive monthly coverage`);
+for (const code of fullTeam) assert.ok(overridden.monthlyLoad[code] <= 2, `${code} must not receive more than two monthly shifts`);
 for (const row of overridden.assignments) for (const code of row.assigned) assert.equal(hasScheduleConflict(overridden.assignments, code, row.date, row.date), false);
 
 const basicPeople = Array.from({ length: 20 }, (_, index) => `EMP${String(index + 1).padStart(3, "0")}`);
@@ -59,6 +60,8 @@ for (const row of splitRoster.assignments) {
   assert.equal(row.assigned.length, date.getDay() === 6 ? 5 : 4);
 }
 for (const code of signaturePeople) assert.ok(splitRoster.monthlyLoad[code] >= 1, `${code} must receive signature coverage`);
+for (const code of basicPeople) assert.ok(splitRoster.monthlyLoad[code] <= 2, `${code} must not receive more than two basic engineer shifts`);
+for (const code of signaturePeople) assert.ok(splitRoster.monthlyLoad[code] <= 3, `${code} signature shifts should stay within the feasible monthly cap`);
 for (const row of splitRoster.assignments) for (const code of row.assigned) assert.equal(hasScheduleConflict(splitRoster.assignments, code, row.date, row.date), false);
 
 console.log("Roster engine tests passed");

@@ -2,6 +2,15 @@
   const keyOf = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   const monthOf = (date) => keyOf(date).slice(0, 7);
   const parse = (key) => new Date(`${key}T12:00:00`);
+  function weekendDatesForMonth(monthDate) {
+    const dates = [];
+    const days = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+    for (let day = 1; day <= days; day += 1) {
+      const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
+      if ([0, 6].includes(date.getDay())) dates.push(keyOf(date));
+    }
+    return dates;
+  }
   const weekendStart = (key) => { const date = parse(key); if (date.getDay() === 0) date.setDate(date.getDate() - 1); return keyOf(date); };
   const dayMs = 86400000;
   function createsSevenDayStretch(existingDate, candidateDate) {
@@ -27,7 +36,7 @@
     ));
   }
 
-  function generateGroup({ people, monthDate, availability, submissions, rosters, requiredForDate }) {
+  function generateGroup({ people, monthDate, availability, submissions, rosters, requiredForDate, maxMonthlyLoad = 2 }) {
     const month = monthOf(monthDate);
     const previousMonth = monthOf(new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1));
     const previousRoster = rosters[previousMonth];
@@ -41,6 +50,7 @@
       if (![0, 6].includes(date.getDay())) continue;
       assignments.push({ date: keyOf(date), required: requiredForDate(date), assigned: [], overrides: [] });
     }
+    const canReceiveMore = (code) => monthlyLoad[code] < maxMonthlyLoad;
 
     // Phase 1: reserve one shift for every team member before any second shifts.
     // People with fewer available dates are placed first so flexible people retain options.
@@ -51,9 +61,9 @@
         || a.localeCompare(b);
     });
     for (const code of coverageOrder) {
-      let choices = assignments.filter((row) => row.assigned.length < row.required && !availability[code]?.[month]?.[row.date] && !hasScheduleConflict(assignments, code, row.date));
+      let choices = assignments.filter((row) => canReceiveMore(code) && row.assigned.length < row.required && !availability[code]?.[month]?.[row.date] && !hasScheduleConflict(assignments, code, row.date));
       let overridden = false;
-      if (!choices.length) { choices = assignments.filter((row) => row.assigned.length < row.required && !hasScheduleConflict(assignments, code, row.date)); overridden = true; }
+      if (!choices.length) { choices = assignments.filter((row) => canReceiveMore(code) && row.assigned.length < row.required && !hasScheduleConflict(assignments, code, row.date)); overridden = true; }
       choices.sort((a, b) => (hasConsecutiveSaturday(assignments, code, a.date) ? 1 : 0) - (hasConsecutiveSaturday(assignments, code, b.date) ? 1 : 0)
         || (a.assigned.length / a.required) - (b.assigned.length / b.required) || a.date.localeCompare(b.date));
       const row = choices[0];
@@ -71,10 +81,10 @@
         || (monthlyLoad[a] >= targetLoad[a] ? 1 : 0) - (monthlyLoad[b] >= targetLoad[b] ? 1 : 0)
         || (monthlyLoad[a] / targetLoad[a]) - (monthlyLoad[b] / targetLoad[b])
         || previousLoad[b] - previousLoad[a] || a.localeCompare(b);
-      const candidates = people.filter((code) => !row.assigned.includes(code) && !availability[code]?.[month]?.[row.date] && !hasScheduleConflict(assignments, code, row.date)).sort(fairnessSort);
+      const candidates = people.filter((code) => canReceiveMore(code) && !row.assigned.includes(code) && !availability[code]?.[month]?.[row.date] && !hasScheduleConflict(assignments, code, row.date)).sort(fairnessSort);
       for (const code of candidates.slice(0, row.required - row.assigned.length)) { row.assigned.push(code); monthlyLoad[code] += 1; }
       if (row.assigned.length < row.required) {
-        const unavailable = people.filter((code) => availability[code]?.[month]?.[row.date] && !row.assigned.includes(code) && !hasScheduleConflict(assignments, code, row.date));
+        const unavailable = people.filter((code) => canReceiveMore(code) && availability[code]?.[month]?.[row.date] && !row.assigned.includes(code) && !hasScheduleConflict(assignments, code, row.date));
         unavailable.sort((a, b) => new Date(submissions[b]?.[month]?.savedAt || 0) - new Date(submissions[a]?.[month]?.savedAt || 0) || fairnessSort(a, b));
         for (const code of unavailable.slice(0, row.required - row.assigned.length)) {
           row.assigned.push(code); monthlyLoad[code] += 1;
@@ -90,10 +100,12 @@
   function generate({ people, monthDate, availability, submissions, rosters, signaturePeople = [] }) {
     const signatureSet = new Set(signaturePeople);
     const basicPeople = people.filter((code) => !signatureSet.has(code));
-    if (!signaturePeople.length) return generateGroup({ people, monthDate, availability, submissions, rosters, requiredForDate: (date) => date.getDay() === 6 ? 4 : 3 });
+    if (!signaturePeople.length) return generateGroup({ people, monthDate, availability, submissions, rosters, requiredForDate: (date) => date.getDay() === 6 ? 4 : 3, maxMonthlyLoad: 2 });
 
-    const basic = generateGroup({ people: basicPeople, monthDate, availability, submissions, rosters, requiredForDate: (date) => date.getDay() === 6 ? 4 : 3 });
-    const signature = generateGroup({ people: signaturePeople, monthDate, availability, submissions, rosters, requiredForDate: () => 1 });
+    const signatureShiftCount = weekendDatesForMonth(monthDate).length;
+    const signatureMaxMonthlyLoad = Math.max(2, Math.ceil(signatureShiftCount / Math.max(signaturePeople.length, 1)));
+    const basic = generateGroup({ people: basicPeople, monthDate, availability, submissions, rosters, requiredForDate: (date) => date.getDay() === 6 ? 4 : 3, maxMonthlyLoad: 2 });
+    const signature = generateGroup({ people: signaturePeople, monthDate, availability, submissions, rosters, requiredForDate: () => 1, maxMonthlyLoad: signatureMaxMonthlyLoad });
     const signatureByDate = Object.fromEntries(signature.assignments.map((row) => [row.date, row]));
     const assignments = basic.assignments.map((row) => {
       const sig = signatureByDate[row.date] || { assigned: [], overrides: [] };
