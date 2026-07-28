@@ -1,5 +1,6 @@
 const TEAM = window.PUBLIC_TEAM || [];
-const PEOPLE = TEAM.map(([code]) => code);
+const RETIRED_EMPLOYEE_CODES = new Set(["EMP014"]);
+const PEOPLE = TEAM.map(([code]) => code).filter((code) => !RETIRED_EMPLOYEE_CODES.has(code));
 const TEAM_ROLE = Object.fromEntries(TEAM.map(([code, , role = "basic"]) => [code, role]));
 const SIGNATURE_PEOPLE = PEOPLE.filter((code) => TEAM_ROLE[code] === "signature");
 const sameRosterGroup = (a, b) => TEAM_ROLE[a] === TEAM_ROLE[b];
