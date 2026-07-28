@@ -66,6 +66,7 @@ function nextRosterMonthKey() {
 }
 const monthMinute = (parts) => ((parts.day - 1) * 24 * 60) + (parts.hour * 60) + parts.minute;
 const isCutoffPassed = () => monthMinute(istNowParts(appNow())) >= SUBMISSION_CUTOFF_MINUTE;
+const isShownMonthAfterCutoff = () => monthKey(shownMonth) === nextRosterMonthKey() && isCutoffPassed() && previewMode !== "before";
 const isSubmissionOpen = () => {
   if (sharedMissing) return false;
   const parts = istNowParts(appNow());
@@ -172,19 +173,27 @@ function renderWindow() {
     return;
   }
   const open = isSubmissionOpen();
+  const afterCutoff = isShownMonthAfterCutoff();
+  const roster = shownRoster();
   $("windowNotice").classList.toggle("closed", !open);
-  $("windowTitle").textContent = open ? "Availability collection is open" : "Availability collection is closed";
+  $("windowTitle").textContent = open ? "Availability collection is open" : afterCutoff ? (roster ? "Weekend roster is generated" : "Roster generation is pending") : "Availability collection is closed";
   const parts = istNowParts(appNow());
   const openText = parts.year === 2026 && parts.month === 7 ? "22nd 11:00 AM IST for this fresh collection cycle" : "15th 11:00 AM IST every month";
   $("windowMessage").textContent = open
     ? `Submit and save NA dates for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}. The window closes at 28th 7:00 PM IST.`
+    : afterCutoff && roster
+      ? `Availability is locked. Showing the generated weekend roster for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}.`
+    : afterCutoff
+      ? `Availability is locked. Roster generation will appear here as soon as the cutoff job saves the roster.`
     : `The next-month form opens at ${openText} and closes at 28th 7:00 PM IST. After that, calendar changes are locked. ${demoMode ? "Demo override is active." : ""}`;
-  $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 28th 7 PM" : "Closed";
+  $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 28th 7 PM" : afterCutoff && roster ? "Roster generated" : afterCutoff ? "Roster pending" : "Closed";
   $("saveButton").disabled = !open || !dirty || !selectedPerson() || !isPersonUnlocked();
   const status = $("personUnlockStatus");
   if (status) {
     const person = selectedPerson();
-    status.textContent = !person
+    status.textContent = afterCutoff
+      ? "Availability is locked after cutoff."
+      : !person
       ? "Select your name to unlock editing."
       : isPersonUnlocked()
         ? `Unlocked for ${displayName(person)}`
@@ -302,6 +311,7 @@ function shownRoster() {
 function renderCalendar() {
   const year = shownMonth.getFullYear(), month = shownMonth.getMonth();
   const roster = shownRoster();
+  const afterCutoff = isShownMonthAfterCutoff();
   $("monthTitle").textContent = shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
   const offset = (new Date(year, month, 1).getDay() + 6) % 7;
   let html = `<button class="day blank" tabindex="-1"></button>`.repeat(offset);
@@ -312,6 +322,8 @@ function renderCalendar() {
     const assignedHtml = row ? `<div class="assignment-list">${row.assigned.map((name) => `<span class="assignment-chip ${overrideNames.has(name) ? "override" : ""}" title="${overrideNames.has(name) ? "NA overridden because this was a latest response" : ""}">${safe(displayName(name))}${overrideNames.has(name) ? " · override" : ""}</span>`).join("")}</div>` : "";
     const weekendHeader = row
       ? `<div class="day-top roster-day-top"><span class="day-number">${day}</span></div>`
+      : afterCutoff
+        ? `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">Roster pending</span></div>`
       : `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">${person ? (na ? "Your NA" : "Available") : "Select name"} <span class="label-separator">•</span> ${teamNA.length} NA</span></div>`;
     const canSelectDate = isSubmissionOpen() && Boolean(person) && isPersonUnlocked();
     html += `<button class="day ${weekend ? "weekend" : ""} ${na ? "na" : ""} ${weekend && !canSelectDate ? "locked" : ""}" ${weekend ? `data-date="${key}" data-na="${safe(teamNA.length ? `NA: ${teamNA.join(", ")}` : "No NA submitted")}" data-selectable="${canSelectDate}" aria-pressed="${na}" aria-disabled="${!canSelectDate}"` : "disabled"}>${weekend ? `${weekendHeader}${assignedHtml}` : `<span class="day-number weekday-number">${day}</span>`}</button>`;
