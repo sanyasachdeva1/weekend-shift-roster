@@ -3,11 +3,27 @@
   const monthOf = (date) => keyOf(date).slice(0, 7);
   const parse = (key) => new Date(`${key}T12:00:00`);
   const weekendStart = (key) => { const date = parse(key); if (date.getDay() === 0) date.setDate(date.getDate() - 1); return keyOf(date); };
-  function hasScheduleConflict(assignments, code, candidateDate, excludedDate = null) {
+  const dayMs = 86400000;
+  function createsSevenDayStretch(existingDate, candidateDate) {
+    const existing = parse(existingDate);
     const candidate = parse(candidateDate);
+    const diffDays = Math.round((candidate - existing) / dayMs);
+    return (existing.getDay() === 0 && candidate.getDay() === 6 && diffDays === 6)
+      || (candidate.getDay() === 0 && existing.getDay() === 6 && diffDays === -6);
+  }
+  function hasConsecutiveSaturday(assignments, code, candidateDate, excludedDate = null) {
+    const candidate = parse(candidateDate);
+    return candidate.getDay() === 6 && assignments.some((row) =>
+      row.date !== excludedDate
+      && row.assigned.includes(code)
+      && parse(row.date).getDay() === 6
+      && Math.abs(candidate - parse(row.date)) === 7 * dayMs
+    );
+  }
+  function hasScheduleConflict(assignments, code, candidateDate, excludedDate = null) {
     return assignments.some((row) => row.date !== excludedDate && row.assigned.includes(code) && (
       weekendStart(row.date) === weekendStart(candidateDate)
-      || (candidate.getDay() === 6 && parse(row.date).getDay() === 6 && Math.abs(candidate - parse(row.date)) === 7 * 86400000)
+      || createsSevenDayStretch(row.date, candidateDate)
     ));
   }
 
@@ -38,7 +54,8 @@
       let choices = assignments.filter((row) => row.assigned.length < row.required && !availability[code]?.[month]?.[row.date] && !hasScheduleConflict(assignments, code, row.date));
       let overridden = false;
       if (!choices.length) { choices = assignments.filter((row) => row.assigned.length < row.required && !hasScheduleConflict(assignments, code, row.date)); overridden = true; }
-      choices.sort((a, b) => (a.assigned.length / a.required) - (b.assigned.length / b.required) || a.date.localeCompare(b.date));
+      choices.sort((a, b) => (hasConsecutiveSaturday(assignments, code, a.date) ? 1 : 0) - (hasConsecutiveSaturday(assignments, code, b.date) ? 1 : 0)
+        || (a.assigned.length / a.required) - (b.assigned.length / b.required) || a.date.localeCompare(b.date));
       const row = choices[0];
       if (!row) { warnings.push(`${code}: no monthly coverage slot available`); continue; }
       row.assigned.push(code); monthlyLoad[code] += 1;
@@ -49,7 +66,8 @@
     const lastSaturday = new Set();
     for (const row of assignments) {
       const date = new Date(`${row.date}T12:00:00`), saturday = date.getDay() === 6;
-      const fairnessSort = (a, b) => (saturday && lastSaturday.has(a) ? 1 : 0) - (saturday && lastSaturday.has(b) ? 1 : 0)
+      const fairnessSort = (a, b) => (hasConsecutiveSaturday(assignments, a, row.date) ? 1 : 0) - (hasConsecutiveSaturday(assignments, b, row.date) ? 1 : 0)
+        || (saturday && lastSaturday.has(a) ? 1 : 0) - (saturday && lastSaturday.has(b) ? 1 : 0)
         || (monthlyLoad[a] >= targetLoad[a] ? 1 : 0) - (monthlyLoad[b] >= targetLoad[b] ? 1 : 0)
         || (monthlyLoad[a] / targetLoad[a]) - (monthlyLoad[b] / targetLoad[b])
         || previousLoad[b] - previousLoad[a] || a.localeCompare(b);
@@ -97,5 +115,5 @@
       monthlyLoad: { ...basic.monthlyLoad, ...signature.monthlyLoad }
     };
   }
-  root.RosterEngine = { generate, hasScheduleConflict };
+  root.RosterEngine = { generate, hasScheduleConflict, hasConsecutiveSaturday };
 })(globalThis);

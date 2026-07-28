@@ -7,7 +7,14 @@ vm.runInContext(await readFile("roster-engine.js", "utf8"), context);
 vm.runInContext(await readFile("historical-rosters.js", "utf8"), context);
 const generate = context.RosterEngine.generate;
 const hasScheduleConflict = context.RosterEngine.hasScheduleConflict;
+const hasConsecutiveSaturday = context.RosterEngine.hasConsecutiveSaturday;
 const people = Array.from({ length: 7 }, (_, index) => `EMP${String(index + 1).padStart(3, "0")}`);
+
+assert.equal(hasScheduleConflict([{ date: "2026-08-02", assigned: ["EMP001"] }], "EMP001", "2026-08-08"), true, "Sunday followed by next Saturday must be blocked");
+assert.equal(hasScheduleConflict([{ date: "2026-08-08", assigned: ["EMP001"] }], "EMP001", "2026-08-02"), true, "Reverse validation must also catch Sunday-next-Saturday conflict");
+assert.equal(hasScheduleConflict([{ date: "2026-08-01", assigned: ["EMP001"] }], "EMP001", "2026-08-09"), false, "Saturday followed by next Sunday is allowed because Sunday between them is off");
+assert.equal(hasScheduleConflict([{ date: "2026-08-01", assigned: ["EMP001"] }], "EMP001", "2026-08-08"), false, "Consecutive Saturdays are allowed only as a soft fallback");
+assert.equal(hasConsecutiveSaturday([{ date: "2026-08-01", assigned: ["EMP001"] }], "EMP001", "2026-08-08"), true, "Consecutive Saturdays remain detectable as a soft burden rule");
 
 const previous = { assignments: [
   { assigned: ["EMP001", "EMP002"] },

@@ -216,7 +216,8 @@ create or replace function public.has_weekend_conflict(p_roster jsonb,p_code tex
     select 1 from jsonb_array_elements(p_roster->'assignments') item
     where (item->>'date')::date is distinct from p_excluded and (item->'assigned') ? p_code and (
       ((item->>'date')::date - case when extract(dow from (item->>'date')::date)=0 then 1 else 0 end) = (p_candidate - case when extract(dow from p_candidate)=0 then 1 else 0 end)
-      or (extract(dow from (item->>'date')::date)=6 and extract(dow from p_candidate)=6 and abs((item->>'date')::date-p_candidate)=7)
+      or (extract(dow from (item->>'date')::date)=0 and extract(dow from p_candidate)=6 and p_candidate-(item->>'date')::date=6)
+      or (extract(dow from (item->>'date')::date)=6 and extract(dow from p_candidate)=0 and (item->>'date')::date-p_candidate=6)
     )
   );
 $$;
@@ -330,11 +331,9 @@ begin
   if req.request_type='cover' then
     if not (source_assigned ? requester_code) then raise exception 'Requester is no longer assigned on source date'; end if;
     if source_assigned ? req.colleague_code then raise exception 'Employee already assigned on covered date'; end if;
-    if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date) then raise exception 'Cover creates a weekend-spacing conflict'; end if;
   else
     select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
     if source_assigned ? req.colleague_code or destination_assigned ? requester_code then raise exception 'Employee already assigned on destination date'; end if;
-    if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,requester_code,req.to_date,req.from_date) then raise exception 'Swap creates a weekend-spacing conflict'; end if;
   end if;
   for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
     assigned:=item->'assigned';
@@ -358,11 +357,9 @@ begin
     select value->'assigned' into source_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.from_date::text;
     if req.request_type='cover' then
       if not (source_assigned ? req.colleague_code) or source_assigned ? requester_code then raise exception 'Roster changed; approved cover cannot be safely reversed'; end if;
-      if has_weekend_conflict(roster_row.roster,requester_code,req.from_date,req.from_date) then raise exception 'Reversal creates a weekend-spacing conflict'; end if;
     else
       select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
       if not (source_assigned ? req.colleague_code) or not (destination_assigned ? requester_code) or source_assigned ? requester_code or destination_assigned ? req.colleague_code then raise exception 'Roster changed; approved swap cannot be safely reversed'; end if;
-      if has_weekend_conflict(roster_row.roster,requester_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,req.colleague_code,req.to_date,req.from_date) then raise exception 'Reversal creates a weekend-spacing conflict'; end if;
     end if;
     for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
       assigned:=item->'assigned';
@@ -394,11 +391,9 @@ begin
   if req.request_type='cover' then
     if not (source_assigned ? requester_code) then raise exception 'Requester is no longer assigned on source date'; end if;
     if source_assigned ? req.colleague_code then raise exception 'Employee already assigned on covered date'; end if;
-    if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date) then raise exception 'Cover creates a weekend-spacing conflict'; end if;
   else
     select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
     if source_assigned ? req.colleague_code or destination_assigned ? requester_code then raise exception 'Employee already assigned on destination date'; end if;
-    if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,requester_code,req.to_date,req.from_date) then raise exception 'Swap creates a weekend-spacing conflict'; end if;
   end if;
   for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
     assigned:=item->'assigned';
@@ -520,11 +515,9 @@ begin
   if req.request_type='cover' then
     if not (source_assigned ? requester_code) then raise exception 'Requester is no longer assigned on source date'; end if;
     if source_assigned ? req.colleague_code then raise exception 'Employee already assigned on covered date'; end if;
-    if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date) then raise exception 'Cover creates a weekend-spacing conflict'; end if;
   else
     select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
     if source_assigned ? req.colleague_code or destination_assigned ? requester_code then raise exception 'Employee already assigned on destination date'; end if;
-    if has_weekend_conflict(roster_row.roster,req.colleague_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,requester_code,req.to_date,req.from_date) then raise exception 'Swap creates a weekend-spacing conflict'; end if;
   end if;
   for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
     assigned:=item->'assigned';
@@ -551,11 +544,9 @@ begin
     select value->'assigned' into source_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.from_date::text;
     if req.request_type='cover' then
       if not (source_assigned ? req.colleague_code) or source_assigned ? member.employee_code then raise exception 'Roster changed; approved cover cannot be safely reversed'; end if;
-      if has_weekend_conflict(roster_row.roster,member.employee_code,req.from_date,req.from_date) then raise exception 'Reversal creates a weekend-spacing conflict'; end if;
     else
       select value->'assigned' into destination_assigned from jsonb_array_elements(roster_row.roster->'assignments') where value->>'date'=req.to_date::text;
       if not (source_assigned ? req.colleague_code) or not (destination_assigned ? member.employee_code) or source_assigned ? member.employee_code or destination_assigned ? req.colleague_code then raise exception 'Roster changed; approved swap cannot be safely reversed'; end if;
-      if has_weekend_conflict(roster_row.roster,member.employee_code,req.from_date,req.to_date) or has_weekend_conflict(roster_row.roster,req.colleague_code,req.to_date,req.from_date) then raise exception 'Reversal creates a weekend-spacing conflict'; end if;
     end if;
     for item in select * from jsonb_array_elements(roster_row.roster->'assignments') loop
       assigned:=item->'assigned';

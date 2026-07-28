@@ -460,8 +460,6 @@ function eligibleSwapDates(roster, requester, colleague, fromDate) {
   return (roster?.assignments || []).filter((row) => row.date !== fromDate
     && row.assigned.includes(colleague)
     && !row.assigned.includes(requester)
-    && !RosterEngine.hasScheduleConflict(roster.assignments, colleague, fromDate, row.date)
-    && !RosterEngine.hasScheduleConflict(roster.assignments, requester, row.date, fromDate)
   ).map((row) => ({ value: row.date, label: parseDate(row.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) }));
 }
 function eligibleCoverColleagues(roster, requester, fromDate) {
@@ -470,7 +468,7 @@ function eligibleCoverColleagues(roster, requester, fromDate) {
   return PEOPLE.filter((person) => person !== requester
     && sameRosterGroup(requester, person)
     && !sourceRow.assigned.includes(person)
-    && !RosterEngine.hasScheduleConflict(roster.assignments, person, fromDate));
+  );
 }
 function updateSwapButton() {
   const eligible = Boolean(currentSwapRoster()) && (demoMode || realNow.getDate() >= 1);
@@ -526,12 +524,10 @@ function applyApprovedRequest(request, actor) {
   if (request.type === "cover") {
     if (!rowA.assigned.includes(request.requester)) return "Assignments changed; this cover request must be reviewed again.";
     if (rowA.assigned.includes(request.colleague)) return "Cover rejected: this employee is already assigned on that date.";
-    if (RosterEngine.hasScheduleConflict(roster.assignments, request.colleague, request.fromDate)) return "Cover rejected: it would create a same-weekend or consecutive-Saturday conflict.";
     rowA.assigned[rowA.assigned.indexOf(request.requester)] = request.colleague;
   } else {
     if (!rowA.assigned.includes(request.requester) || !rowB.assigned.includes(request.colleague)) return "Assignments changed; this request must be reviewed again.";
     if (rowA.assigned.includes(request.colleague) || rowB.assigned.includes(request.requester)) return "Swap rejected: one employee is already assigned on the destination date.";
-    if (RosterEngine.hasScheduleConflict(roster.assignments, request.colleague, request.fromDate, request.toDate) || RosterEngine.hasScheduleConflict(roster.assignments, request.requester, request.toDate, request.fromDate)) return "Swap rejected: it would create a same-weekend or consecutive-Saturday conflict.";
     rowA.assigned[rowA.assigned.indexOf(request.requester)] = request.colleague;
     rowB.assigned[rowB.assigned.indexOf(request.colleague)] = request.requester;
   }
@@ -586,16 +582,10 @@ async function revokeSwap(id) {
       if (!source?.assigned.includes(request.colleague) || source.assigned.includes(request.requester)) {
         alert("This approved cover request can no longer be safely reversed because the roster changed. Ask the admin to review it."); return;
       }
-      if (RosterEngine.hasScheduleConflict(roster.assignments, request.requester, request.fromDate, request.fromDate)) {
-        alert("The original shift now conflicts with another weekend assignment. Ask the admin to review the reversal."); return;
-      }
       source.assigned[source.assigned.indexOf(request.colleague)] = request.requester;
     } else {
       if (!source?.assigned.includes(request.colleague) || !destination?.assigned.includes(request.requester) || source.assigned.includes(request.requester) || destination.assigned.includes(request.colleague)) {
         alert("This approved swap can no longer be safely reversed because the roster changed. Ask the admin to review it."); return;
-      }
-      if (RosterEngine.hasScheduleConflict(roster.assignments, request.requester, request.fromDate, request.toDate) || RosterEngine.hasScheduleConflict(roster.assignments, request.colleague, request.toDate, request.fromDate)) {
-        alert("The original shifts now conflict with another weekend assignment. Ask the admin to review the reversal."); return;
       }
       source.assigned[source.assigned.indexOf(request.colleague)] = request.requester;
       destination.assigned[destination.assigned.indexOf(request.requester)] = request.colleague;
