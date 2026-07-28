@@ -167,7 +167,7 @@ function renderWindow() {
   if (sharedMissing) {
     $("windowNotice").classList.add("closed");
     $("windowTitle").textContent = "Shared database setup required";
-    $("windowMessage").textContent = "Do not collect NA dates yet. This production page needs Supabase configured so submissions from all laptops save into one shared roster database.";
+    $("windowMessage").textContent = "Do not collect Not Available dates yet. This production page needs Supabase configured so submissions from all laptops save into one shared roster database.";
     $("windowBadge").textContent = "Setup required";
     $("saveButton").disabled = true;
     return;
@@ -176,15 +176,15 @@ function renderWindow() {
   const afterCutoff = isShownMonthAfterCutoff();
   const roster = shownRoster();
   $("windowNotice").classList.toggle("closed", !open);
-  $("windowTitle").textContent = open ? "Availability collection is open" : afterCutoff ? (roster ? "Weekend roster is generated" : "Roster generation is pending") : "Availability collection is closed";
+  $("windowTitle").textContent = open ? "Not Available date collection is open" : afterCutoff ? (roster ? "Weekend roster is generated" : "Roster generation is pending") : "Not Available date collection is closed";
   const parts = istNowParts(appNow());
   const openText = parts.year === 2026 && parts.month === 7 ? "22nd 11:00 AM IST for this fresh collection cycle" : "15th 11:00 AM IST every month";
   $("windowMessage").textContent = open
-    ? `Submit and save NA dates for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}. The window closes at 28th 7:00 PM IST.`
+    ? `Select and save only the dates you are Not Available to work for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}. The window closes at 28th 7:00 PM IST.`
     : afterCutoff && roster
-      ? `Availability is locked. Showing the generated weekend roster for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}.`
+      ? `Not Available date changes are locked. Showing the generated weekend roster for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}.`
     : afterCutoff
-      ? `Availability is locked. Roster generation will appear here as soon as the cutoff job saves the roster.`
+      ? `Not Available date changes are locked. Roster generation will appear here as soon as the cutoff job saves the roster.`
     : `The next-month form opens at ${openText} and closes at 28th 7:00 PM IST. After that, calendar changes are locked. ${demoMode ? "Demo override is active." : ""}`;
   $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 28th 7 PM" : afterCutoff && roster ? "Roster generated" : afterCutoff ? "Roster pending" : "Closed";
   $("saveButton").disabled = !open || !dirty || !selectedPerson() || !isPersonUnlocked();
@@ -192,7 +192,7 @@ function renderWindow() {
   if (status) {
     const person = selectedPerson();
     status.textContent = afterCutoff
-      ? "Availability is locked after cutoff."
+      ? "Not Available date changes are locked after cutoff."
       : !person
       ? "Select your name to unlock editing."
       : isPersonUnlocked()
@@ -222,7 +222,7 @@ function loadPersonDraft() {
   updateSaveState();
 }
 function renderPeople() {
-  // Availability context is integrated into each weekend calendar cell.
+  // Not Available context is integrated into each weekend calendar cell.
 }
 function openEmployeeCodeDialog(employeeCode) {
   if (!employeeCode || !sharedMode) return;
@@ -346,10 +346,10 @@ function renderCalendar() {
   renderPeople(); renderWindow();
 }
 async function saveAvailability() {
-  if (sharedMissing) { alert("Shared database is not configured yet. Do not collect NA dates until Supabase is connected."); return; }
+  if (sharedMissing) { alert("Shared database is not configured yet. Do not collect Not Available dates until Supabase is connected."); return; }
   if (!isSubmissionOpen()) return;
   const person = $("personSelect").value, month = monthKey(shownMonth);
-  if (!person) { alert("Select your name before submitting availability."); return; }
+  if (!person) { alert("Select your name before submitting Not Available dates."); return; }
   if (!isPersonUnlocked()) { openEmployeeCodeDialog(person); return; }
   const accessCode = activeEmployeeAccessCode;
   if (sharedMode) {

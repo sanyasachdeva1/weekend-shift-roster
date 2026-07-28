@@ -29,7 +29,7 @@
       <button id="closeAuth" class="dialog-close" type="button" aria-label="Close">×</button>
       <p class="eyebrow dark">Shared roster database</p>
       <h2>No sign-in required</h2>
-      <p>This roster is configured as an open team form. Select your own name and submit only your own NA dates.</p>
+      <p>This roster is configured as an open team form. Select your own name and submit only the dates you are Not Available to work.</p>
       <button id="googleSignIn" class="google-button" type="button"><span class="google-g">G</span> Continue with Google</button>
       <p id="authMessage" class="inline-message"></p>
       <div id="claimSection" class="claim-section" hidden>
@@ -44,8 +44,8 @@
     <form id="employeeCodeForm" class="auth-card">
       <button id="closeEmployeeCode" class="dialog-close" type="button" aria-label="Close">×</button>
       <p class="eyebrow dark">Personal access</p>
-      <h2 id="employeeCodeTitle">Unlock availability</h2>
-      <p>Enter your personal code to edit and save NA dates for your own name.</p>
+      <h2 id="employeeCodeTitle">Unlock Not Available dates</h2>
+      <p>Enter your personal code to edit and save only the dates you are Not Available to work.</p>
       <label>
         Personal code
         <input id="employeeCodeInput" type="password" autocomplete="off" placeholder="Enter your code">
@@ -62,13 +62,13 @@
     <section id="windowNotice" class="notice">
       <div>
         <strong id="windowTitle">Checking submission window…</strong>
-        <span id="windowMessage">Availability opens from the 15th to the 28th for next month.</span>
+        <span id="windowMessage">Not Available date collection opens from the 15th to the 28th for next month.</span>
       </div>
       <span id="windowBadge" class="window-badge">—</span>
     </section>
 
     <nav class="tabs" aria-label="Roster workflows">
-      <button class="tab active" data-panel="availabilityPanel" type="button">Availability</button>
+      <button class="tab active" data-panel="availabilityPanel" type="button">Not Available dates</button>
       <button class="tab" data-panel="swapPanel" type="button">Swap / cover</button>
       <button class="tab" data-panel="adminPanel" type="button">Admin</button>
     </nav>
@@ -84,14 +84,14 @@
       <div class="month-switcher" aria-label="Calendar month controls">
         <button id="prevMonth" class="icon-button" type="button" aria-label="Previous month">←</button>
         <div>
-          <span>Availability for</span>
+          <span>Not Available dates for</span>
           <strong id="monthTitle"></strong>
         </div>
         <button id="nextMonth" class="icon-button" type="button" aria-label="Next month">→</button>
       </div>
       <div class="actions">
         <span id="saveState" class="save-state">No unsaved changes</span>
-        <button id="saveButton" class="primary" type="button">Submit availability</button>
+        <button id="saveButton" class="primary" type="button">Submit Not Available dates</button>
         <button id="exportNAProof" class="secondary" type="button">Export NA proof</button>
         <button id="exportButton" class="secondary" type="button">Export data</button>
       </div>
@@ -108,7 +108,7 @@
         <div class="weekdays" aria-hidden="true">
           <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
         </div>
-        <div id="calendar" class="calendar" aria-label="Weekend availability calendar"></div>
+        <div id="calendar" class="calendar" aria-label="Weekend Not Available dates calendar"></div>
         <div id="rosterSummary" class="roster-summary" aria-live="polite"></div>
         <div id="warnings" class="warnings" hidden></div>
       </article>
@@ -188,10 +188,10 @@
       ["SIG003", "Jagannath Sivaramakrishnan", "signature"], ["SIG004", "Sandeep Hangaragi", "signature"]
     ];
   </script>
-  <script src="config.js?v=22"></script>
-  <script src="backend.js?v=22"></script>
-  <script src="historical-rosters.js?v=22"></script>
-  <script src="roster-engine.js?v=22"></script>
-  <script src="app.js?v=22"></script>
+  <script src="config.js?v=23"></script>
+  <script src="backend.js?v=23"></script>
+  <script src="historical-rosters.js?v=23"></script>
+  <script src="roster-engine.js?v=23"></script>
+  <script src="app.js?v=23"></script>
 </body>
 </html>
