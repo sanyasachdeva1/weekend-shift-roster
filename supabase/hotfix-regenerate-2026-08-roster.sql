@@ -16,7 +16,7 @@ declare
     "month": "2026-08",
     "status": "needs-review",
     "generatedAt": "2026-07-28T19:20:51.094Z",
-    "generatedBy": "Manual safe regeneration after active list, max-stretch, max-2 load, and Sat/Sun balance correction",
+    "generatedBy": "Manual safe regeneration after active list, max-stretch, max-2 load, previous-month target, and Sat/Sun balance correction",
     "assignments": [
       {
         "date": "2026-08-01",
@@ -45,7 +45,7 @@ declare
         "required": 5,
         "requiredBasic": 4,
         "requiredSignature": 1,
-        "assigned": ["EMP022", "EMP020", "EMP004", "EMP010", "SIG004"],
+        "assigned": ["EMP022", "EMP020", "EMP016", "EMP004", "SIG004"],
         "overrides": []
       },
       {
@@ -53,7 +53,7 @@ declare
         "required": 4,
         "requiredBasic": 3,
         "requiredSignature": 1,
-        "assigned": ["EMP018", "EMP008", "EMP016", "SIG002"],
+        "assigned": ["EMP018", "EMP008", "EMP006", "SIG002"],
         "overrides": []
       },
       {
@@ -61,7 +61,7 @@ declare
         "required": 5,
         "requiredBasic": 4,
         "requiredSignature": 1,
-        "assigned": ["EMP005", "EMP003", "EMP006", "EMP007", "SIG003"],
+        "assigned": ["EMP005", "EMP003", "EMP007", "EMP015", "SIG003"],
         "overrides": []
       },
       {
@@ -77,7 +77,7 @@ declare
         "required": 5,
         "requiredBasic": 4,
         "requiredSignature": 1,
-        "assigned": ["EMP001", "EMP004", "EMP008", "EMP022", "SIG002"],
+        "assigned": ["EMP001", "EMP004", "EMP008", "EMP002", "SIG002"],
         "overrides": []
       },
       {
@@ -99,11 +99,11 @@ declare
         "required": 5,
         "requiredBasic": 4,
         "requiredSignature": 1,
-        "assigned": ["EMP002", "EMP010", "EMP003", "EMP005", "SIG003"],
+        "assigned": ["EMP002", "EMP010", "EMP003", "EMP022", "SIG003"],
         "overrides": [
           {
-            "name": "EMP005",
-            "submittedAt": "2026-07-23T17:43:27.744033+00:00",
+            "name": "EMP022",
+            "submittedAt": "2026-07-26T16:34:18.416134+00:00",
             "reason": "Latest responder NA override"
           }
         ]
@@ -113,16 +113,16 @@ declare
         "required": 4,
         "requiredBasic": 3,
         "requiredSignature": 1,
-        "assigned": ["EMP015", "EMP019", "EMP001", "SIG002"],
+        "assigned": ["EMP015", "EMP005", "EMP019", "SIG002"],
         "overrides": [
           {
-            "name": "EMP019",
-            "submittedAt": "2026-07-23T06:13:36.606876+00:00",
+            "name": "EMP005",
+            "submittedAt": "2026-07-23T17:43:27.744033+00:00",
             "reason": "Latest responder NA override"
           },
           {
-            "name": "EMP001",
-            "submittedAt": "2026-07-22T18:16:09.64049+00:00",
+            "name": "EMP019",
+            "submittedAt": "2026-07-23T06:13:36.606876+00:00",
             "reason": "Latest responder NA override"
           }
         ]
@@ -131,8 +131,8 @@ declare
     "warnings": [
       "2026-08-02: EMP017 assigned by availability override",
       "2026-08-23: EMP013 assigned by availability override",
-      "2026-08-29: EMP005 assigned by availability override",
-      "2026-08-30: EMP019, EMP001 assigned by availability override"
+      "2026-08-29: EMP022 assigned by availability override",
+      "2026-08-30: EMP005, EMP019 assigned by availability override"
     ]
   }'::jsonb;
 begin
@@ -152,7 +152,7 @@ begin
   values (
     'Codex safe roster correction',
     'ROSTER_SAVED',
-    'Corrected August 2026 roster after removing EMP014 and enforcing max-stretch, max-2 basic load, and Sat/Sun balance rules; NA entries were not modified',
+    'Corrected August 2026 roster after removing EMP014 and enforcing max-stretch, max-2 basic load, previous-month target, and Sat/Sun balance rules; NA entries were not modified',
     prior,
     corrected_roster
   );

@@ -8,7 +8,7 @@ vm.runInContext(await readFile("historical-rosters.js", "utf8"), context);
 const generate = context.RosterEngine.generate;
 const hasScheduleConflict = context.RosterEngine.hasScheduleConflict;
 const hasConsecutiveSaturday = context.RosterEngine.hasConsecutiveSaturday;
-const people = Array.from({ length: 7 }, (_, index) => `EMP${String(index + 1).padStart(3, "0")}`);
+const people = Array.from({ length: 22 }, (_, index) => `EMP${String(index + 1).padStart(3, "0")}`);
 
 assert.equal(hasScheduleConflict([{ date: "2026-08-02", assigned: ["EMP001"] }], "EMP001", "2026-08-08"), true, "Sunday followed by next Saturday must be blocked");
 assert.equal(hasScheduleConflict([{ date: "2026-08-08", assigned: ["EMP001"] }], "EMP001", "2026-08-02"), true, "Reverse validation must also catch Sunday-next-Saturday conflict");

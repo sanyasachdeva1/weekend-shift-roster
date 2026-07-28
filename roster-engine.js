@@ -51,6 +51,7 @@
       assignments.push({ date: keyOf(date), required: requiredForDate(date), assigned: [], overrides: [] });
     }
     const canReceiveMore = (code) => monthlyLoad[code] < maxMonthlyLoad;
+    const isBelowTarget = (code) => monthlyLoad[code] < targetLoad[code];
     const assignedDayTypes = (code) => new Set(assignments
       .filter((row) => row.assigned.includes(code))
       .map((row) => parse(row.date).getDay()));
@@ -91,12 +92,22 @@
         || (monthlyLoad[a] >= targetLoad[a] ? 1 : 0) - (monthlyLoad[b] >= targetLoad[b] ? 1 : 0)
         || (monthlyLoad[a] / targetLoad[a]) - (monthlyLoad[b] / targetLoad[b])
         || previousLoad[b] - previousLoad[a] || a.localeCompare(b);
+      const addCandidates = (candidates) => {
+        for (const code of candidates) {
+          if (row.assigned.length >= row.required) break;
+          if (row.assigned.includes(code)) continue;
+          row.assigned.push(code); monthlyLoad[code] += 1;
+        }
+      };
       const candidates = people.filter((code) => canReceiveMore(code) && !row.assigned.includes(code) && !availability[code]?.[month]?.[row.date] && !hasScheduleConflict(assignments, code, row.date)).sort(fairnessSort);
-      for (const code of candidates.slice(0, row.required - row.assigned.length)) { row.assigned.push(code); monthlyLoad[code] += 1; }
+      addCandidates(candidates.filter(isBelowTarget));
+      addCandidates(candidates.filter((code) => !isBelowTarget(code)));
       if (row.assigned.length < row.required) {
         const unavailable = people.filter((code) => canReceiveMore(code) && availability[code]?.[month]?.[row.date] && !row.assigned.includes(code) && !hasScheduleConflict(assignments, code, row.date));
-        unavailable.sort((a, b) => new Date(submissions[b]?.[month]?.savedAt || 0) - new Date(submissions[a]?.[month]?.savedAt || 0) || fairnessSort(a, b));
-        for (const code of unavailable.slice(0, row.required - row.assigned.length)) {
+        unavailable.sort((a, b) => (isBelowTarget(a) ? 0 : 1) - (isBelowTarget(b) ? 0 : 1)
+          || new Date(submissions[b]?.[month]?.savedAt || 0) - new Date(submissions[a]?.[month]?.savedAt || 0) || fairnessSort(a, b));
+        for (const code of unavailable) {
+          if (row.assigned.length >= row.required) break;
           row.assigned.push(code); monthlyLoad[code] += 1;
           row.overrides.push({ name: code, submittedAt: submissions[code]?.[month]?.savedAt || null, reason: "Latest responder NA override" });
         }
