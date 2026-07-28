@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 
 await import(new URL("../roster-engine.js", import.meta.url));
+await import(new URL("../historical-rosters.js", import.meta.url));
 
 const CONFIG = {
   supabaseUrl: process.env.SUPABASE_URL || "https://npzmwgdnmactszivuukn.supabase.co",
@@ -12,6 +13,7 @@ const HEADERS = {
   "Content-Type": "application/json"
 };
 const RETIRED = new Set(["EMP014"]);
+const HISTORICAL_ROSTERS = globalThis.HISTORICAL_ROSTERS || {};
 
 const rpc = async (name, body = {}) => {
   const response = await fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/${name}`, {
@@ -32,13 +34,17 @@ const monthLabel = monthDate.toLocaleDateString("en-IN", { month: "long", year: 
 const historyBase = `data/history/${targetMonth}-${monthDate.toLocaleDateString("en-US", { month: "long" })}`;
 
 function normalizeState(remote) {
-  return {
+  const state = {
     availability: remote?.availability || {},
     submissions: remote?.submissions || {},
     rosters: remote?.rosters || {},
     team: remote?.team || [],
     audit: remote?.audit || []
   };
+  for (const [month, roster] of Object.entries(HISTORICAL_ROSTERS)) {
+    state.rosters[month] ||= roster;
+  }
+  return state;
 }
 function displayMap(team) {
   return Object.fromEntries(team.map((member) => [member.employee_code, member.full_name]));

@@ -4,6 +4,7 @@ import vm from "node:vm";
 
 const context = vm.createContext({ console });
 vm.runInContext(await readFile("roster-engine.js", "utf8"), context);
+vm.runInContext(await readFile("historical-rosters.js", "utf8"), context);
 const generate = context.RosterEngine.generate;
 const hasScheduleConflict = context.RosterEngine.hasScheduleConflict;
 const people = Array.from({ length: 7 }, (_, index) => `EMP${String(index + 1).padStart(3, "0")}`);
@@ -16,6 +17,10 @@ const alternating = generate({ people, monthDate: new Date(2026, 7, 1), availabi
 assert.equal(alternating.targetLoad.EMP001, 1);
 assert.equal(alternating.targetLoad.EMP002, 2);
 assert.equal(alternating.targetLoad.EMP007, 2);
+
+const julyReference = context.HISTORICAL_ROSTERS["2026-07"];
+const fromJulyReference = generate({ people, monthDate: new Date(2026, 7, 1), availability: {}, submissions: {}, rosters: { "2026-07": julyReference } });
+assert.equal(fromJulyReference.targetLoad.EMP001, 1, "Sanya worked twice in July, so August target should be one shift");
 
 for (const row of alternating.assignments) assert.equal(new Set(row.assigned).size, row.assigned.length);
 for (const code of people) assert.ok(alternating.monthlyLoad[code] >= 1, `${code} must receive monthly coverage`);

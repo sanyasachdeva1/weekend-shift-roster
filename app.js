@@ -16,6 +16,7 @@ const ADMIN_ACCOUNTS = [
 ];
 const STORAGE_KEY = query.get("storage") ? `weekend-roster-data-v4-${query.get("storage")}` : query.get("preview") ? `weekend-roster-data-v4-${query.get("preview")}` : "weekend-roster-data-v4";
 const ADMIN_SESSION_KEY = "weekend-roster-admin-session";
+const HISTORICAL_ROSTERS = globalThis.HISTORICAL_ROSTERS || {};
 const SUBMISSION_OPEN_MINUTE = ((15 - 1) * 24 * 60) + (11 * 60);
 const JULY_2026_RESET_OPEN_MINUTE = ((22 - 1) * 24 * 60) + (11 * 60);
 const SUBMISSION_CUTOFF_MINUTE = ((28 - 1) * 24 * 60) + (19 * 60);
@@ -82,6 +83,10 @@ function loadState() {
   } catch { return emptyState(); }
 }
 function normalizeState(data) {
+  data.rosters ||= {};
+  for (const [month, roster] of Object.entries(HISTORICAL_ROSTERS)) {
+    data.rosters[month] ||= roster;
+  }
   data.swapRequests = (data.swapRequests || []).map((request) => ({
     type: "swap",
     ...request,
