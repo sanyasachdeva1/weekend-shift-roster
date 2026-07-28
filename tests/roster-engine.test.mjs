@@ -63,5 +63,13 @@ for (const code of signaturePeople) assert.ok(splitRoster.monthlyLoad[code] >= 1
 for (const code of basicPeople) assert.ok(splitRoster.monthlyLoad[code] <= 2, `${code} must not receive more than two basic engineer shifts`);
 for (const code of signaturePeople) assert.ok(splitRoster.monthlyLoad[code] <= 3, `${code} signature shifts should stay within the feasible monthly cap`);
 for (const row of splitRoster.assignments) for (const code of row.assigned) assert.equal(hasScheduleConflict(splitRoster.assignments, code, row.date, row.date), false);
+const basicDayTypes = Object.fromEntries(basicPeople.map((code) => [code, new Set()]));
+for (const row of splitRoster.assignments) {
+  const dayType = new Date(`${row.date}T12:00:00`).getDay();
+  for (const code of row.assigned.filter((item) => item.startsWith("EMP"))) basicDayTypes[code].add(dayType);
+}
+const twoShiftBasicPeople = basicPeople.filter((code) => splitRoster.monthlyLoad[code] === 2);
+const mixedDayTypePeople = twoShiftBasicPeople.filter((code) => basicDayTypes[code].has(6) && basicDayTypes[code].has(0));
+assert.ok(mixedDayTypePeople.length >= twoShiftBasicPeople.length - 1, "Two-shift basic engineers should get one Saturday and one Sunday whenever practical");
 
 console.log("Roster engine tests passed");

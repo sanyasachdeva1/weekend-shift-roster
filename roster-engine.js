@@ -51,6 +51,14 @@
       assignments.push({ date: keyOf(date), required: requiredForDate(date), assigned: [], overrides: [] });
     }
     const canReceiveMore = (code) => monthlyLoad[code] < maxMonthlyLoad;
+    const assignedDayTypes = (code) => new Set(assignments
+      .filter((row) => row.assigned.includes(code))
+      .map((row) => parse(row.date).getDay()));
+    const sameDayTypePenalty = (code, dateKey) => {
+      if (monthlyLoad[code] !== 1) return 0;
+      const dayTypes = assignedDayTypes(code);
+      return dayTypes.has(parse(dateKey).getDay()) ? 1 : 0;
+    };
 
     // Phase 1: reserve one shift for every team member before any second shifts.
     // People with fewer available dates are placed first so flexible people retain options.
@@ -64,7 +72,8 @@
       let choices = assignments.filter((row) => canReceiveMore(code) && row.assigned.length < row.required && !availability[code]?.[month]?.[row.date] && !hasScheduleConflict(assignments, code, row.date));
       let overridden = false;
       if (!choices.length) { choices = assignments.filter((row) => canReceiveMore(code) && row.assigned.length < row.required && !hasScheduleConflict(assignments, code, row.date)); overridden = true; }
-      choices.sort((a, b) => (hasConsecutiveSaturday(assignments, code, a.date) ? 1 : 0) - (hasConsecutiveSaturday(assignments, code, b.date) ? 1 : 0)
+      choices.sort((a, b) => sameDayTypePenalty(code, a.date) - sameDayTypePenalty(code, b.date)
+        || (hasConsecutiveSaturday(assignments, code, a.date) ? 1 : 0) - (hasConsecutiveSaturday(assignments, code, b.date) ? 1 : 0)
         || (a.assigned.length / a.required) - (b.assigned.length / b.required) || a.date.localeCompare(b.date));
       const row = choices[0];
       if (!row) { warnings.push(`${code}: no monthly coverage slot available`); continue; }
@@ -76,7 +85,8 @@
     const lastSaturday = new Set();
     for (const row of assignments) {
       const date = new Date(`${row.date}T12:00:00`), saturday = date.getDay() === 6;
-      const fairnessSort = (a, b) => (hasConsecutiveSaturday(assignments, a, row.date) ? 1 : 0) - (hasConsecutiveSaturday(assignments, b, row.date) ? 1 : 0)
+      const fairnessSort = (a, b) => sameDayTypePenalty(a, row.date) - sameDayTypePenalty(b, row.date)
+        || (hasConsecutiveSaturday(assignments, a, row.date) ? 1 : 0) - (hasConsecutiveSaturday(assignments, b, row.date) ? 1 : 0)
         || (saturday && lastSaturday.has(a) ? 1 : 0) - (saturday && lastSaturday.has(b) ? 1 : 0)
         || (monthlyLoad[a] >= targetLoad[a] ? 1 : 0) - (monthlyLoad[b] >= targetLoad[b] ? 1 : 0)
         || (monthlyLoad[a] / targetLoad[a]) - (monthlyLoad[b] / targetLoad[b])
