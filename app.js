@@ -423,8 +423,8 @@ function renderRoster() {
   if (generatedMode) {
     summary.innerHTML = "";
     summary.hidden = true;
-    warnings.hidden = !roster.warnings.length;
-    warnings.textContent = roster.warnings.join(" · ");
+    warnings.hidden = true;
+    warnings.textContent = "";
     return;
   }
   summary.hidden = false;
