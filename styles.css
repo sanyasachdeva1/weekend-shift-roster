@@ -198,6 +198,9 @@ textarea { resize: vertical; }
 .inline-message.error { color: var(--red); font-weight: 800; }
 .lower { margin-top: 28px; }
 .request-list { display: grid; gap: 10px; }
+.request-page-summary { padding: 8px 2px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 11px; font-weight: 850; }
+.request-pager { display: flex; gap: 7px; }
+.request-pager button { min-height: 30px; padding: 0 10px; font-size: 11px; }
 .request-card { padding: 15px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border: 1px solid #d9e3f1; border-radius: 14px; background: linear-gradient(180deg, #ffffff, #fbfdff); box-shadow: 0 10px 20px rgba(20, 45, 85, .05); }
 .request-card.swap { border-left: 4px solid #1d63d5; }
 .request-card.cover { border-left: 4px solid #16845b; }

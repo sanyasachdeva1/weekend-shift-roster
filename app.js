@@ -42,6 +42,8 @@ let activeEmployee = "";
 let activeEmployeeAccessCode = "";
 let pendingEmployeeUnlock = "";
 let swapRequesterSelected = false;
+let swapRequestPage = 1;
+const SWAP_REQUESTS_PER_PAGE = 5;
 
 const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const monthKey = (date) => dateKey(date).slice(0, 7);
@@ -574,15 +576,37 @@ function renderSwap() {
   const eligible = Boolean(roster) && (demoMode || realNow.getDate() >= 1);
   updateSwapButton();
   $("swapEligibility").textContent = eligible ? (demoMode ? "Demo eligible" : "Requests open") : "No current roster";
-  $("swapRequestList").innerHTML = requestCards(state.swapRequests);
+  renderSwapRequestList();
   document.querySelectorAll(".revoke-swap").forEach((button) => button.addEventListener("click", () => revokeSwap(button.dataset.id)));
   document.querySelectorAll(".colleague-approve").forEach((button) => button.addEventListener("click", () => decideColleagueSwap(button.dataset.id, true)));
   document.querySelectorAll(".colleague-reject").forEach((button) => button.addEventListener("click", () => decideColleagueSwap(button.dataset.id, false)));
 }
-function requestCards(requests, admin = false) {
+function renderSwapRequestList() {
+  const total = state.swapRequests.length;
+  if (!total) {
+    $("swapRequestList").innerHTML = `<div class="empty-state">No swap requests.</div>`;
+    return;
+  }
+  const pages = Math.max(1, Math.ceil(total / SWAP_REQUESTS_PER_PAGE));
+  swapRequestPage = Math.min(Math.max(1, swapRequestPage), pages);
+  const newestFirst = state.swapRequests.slice().reverse();
+  const start = (swapRequestPage - 1) * SWAP_REQUESTS_PER_PAGE;
+  const visibleRequests = newestFirst.slice(start, start + SWAP_REQUESTS_PER_PAGE);
+  const pageLabel = total <= SWAP_REQUESTS_PER_PAGE ? `${total} request${total === 1 ? "" : "s"}` : `Page ${swapRequestPage} of ${pages} · ${total} requests`;
+  $("swapRequestList").innerHTML = `
+    <div class="request-page-summary">
+      <span>${pageLabel}</span>
+      ${pages > 1 ? `<div class="request-pager"><button class="secondary request-page-prev" type="button" ${swapRequestPage === 1 ? "disabled" : ""}>Previous</button><button class="secondary request-page-next" type="button" ${swapRequestPage === pages ? "disabled" : ""}>Next</button></div>` : ""}
+    </div>
+    ${requestCards(visibleRequests, false, false)}
+  `;
+  $("swapRequestList").querySelector(".request-page-prev")?.addEventListener("click", () => { swapRequestPage -= 1; renderSwap(); });
+  $("swapRequestList").querySelector(".request-page-next")?.addEventListener("click", () => { swapRequestPage += 1; renderSwap(); });
+}
+function requestCards(requests, admin = false, reverse = true) {
   if (!requests.length) return `<div class="empty-state">No swap requests.</div>`;
   const viewer = $("swapRequester")?.value;
-  return requests.slice().reverse().map((request) => {
+  return (reverse ? requests.slice().reverse() : requests).map((request) => {
     const isCover = request.type === "cover";
     const requestTypeLabel = isCover ? "Cover" : "Swap";
     const requestStatusClass = request.status.replace(/[^a-z-]/g, "-");
@@ -689,12 +713,13 @@ async function submitSwap() {
       await window.RosterBackend.requestSwap(request, accessCode);
       $("swapMessage").textContent = `${type === "cover" ? "Cover request" : "Swap request"} sent to ${displayName(request.colleague)} for approval first.`;
       $("swapReason").value = "";
+      swapRequestPage = 1;
       await refreshSharedState();
     } catch (error) { alert(`Shared request failed: ${error.message}`); }
     return;
   }
   state.swapRequests.push(request); audit(type === "cover" ? "COVER_REQUESTED" : "SWAP_REQUESTED", displayName(request.requester), type === "cover" ? `${displayName(request.colleague)} covering ${request.fromDate}` : `${request.fromDate} with ${displayName(request.colleague)} on ${request.toDate}`, null, request);
-  $("swapMessage").textContent = `${type === "cover" ? "Cover request" : "Swap request"} sent to ${displayName(request.colleague)} for approval first.`; $("swapReason").value = ""; renderSwap(); renderAdmin();
+  $("swapMessage").textContent = `${type === "cover" ? "Cover request" : "Swap request"} sent to ${displayName(request.colleague)} for approval first.`; $("swapReason").value = ""; swapRequestPage = 1; renderSwap(); renderAdmin();
 }
 async function decideSwap(id, approved) {
   const admin = adminActor(); if (!admin) return;
