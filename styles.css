@@ -95,8 +95,8 @@ button, .button { min-height: 38px; padding: 0 14px; display: inline-flex; align
 .roster-day-head span { color: var(--muted); font-size: 10px; font-weight: 850; text-transform: uppercase; }
 .roster-group { margin-top: 7px; }
 .roster-group-label { margin-bottom: 5px; color: var(--muted); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
-.roster-name-list { display: flex; flex-wrap: wrap; gap: 5px; }
-.roster-name-chip { max-width: 100%; padding: 5px 7px; border-radius: 8px; color: #24466d; background: #eef4fb; font-size: 10px; font-weight: 800; line-height: 1.18; overflow-wrap: anywhere; }
+.roster-name-list { display: grid; gap: 5px; }
+.roster-name-chip { width: 100%; max-width: 100%; padding: 6px 8px; border-radius: 8px; color: #24466d; background: #eef4fb; font-size: 10px; font-weight: 800; line-height: 1.18; overflow-wrap: anywhere; }
 .roster-name-chip.mine { color: #082b61; background: #cfe3ff; box-shadow: inset 0 0 0 2px #1d63d5, 0 6px 14px rgba(29, 99, 213, .18); }
 .roster-name-chip.signature { color: #6a4a00; background: #fff2ca; }
 .roster-name-chip.signature.mine { color: #4b3300; background: #ffe39a; box-shadow: inset 0 0 0 2px #c58a00; }
@@ -175,18 +175,19 @@ th { color: var(--muted); background: #f7f9fc; font-size: 10px; text-transform: 
 .mode-toggle small { display: block; max-width: 520px; color: var(--muted); font-size: 12px; line-height: 1.35; }
 .mode-toggle label:has(input:checked) { border-color: var(--blue); background: linear-gradient(180deg, #f5f9ff, #eaf2ff); box-shadow: inset 0 0 0 1px rgba(29, 99, 213, .18), 0 14px 28px rgba(32, 91, 170, .12); }
 .swap-form-shell { padding: 16px; border: 1px solid #d8e2ef; border-radius: 14px; background: #fbfdff; }
-#swapPanel .form-intro { max-width: 980px; margin-bottom: 14px; line-height: 1.45; }
-#swapPanel .mode-toggle { max-width: 980px; margin-bottom: 14px; gap: 10px; }
-#swapPanel .mode-toggle label { min-height: 58px; padding: 11px 14px 11px 42px; border-radius: 12px; box-shadow: 0 8px 18px rgba(20, 45, 85, .045); }
+#swapPanel .section-heading, #swapPanel .form-intro, #swapPanel .mode-toggle, #swapPanel .swap-form-shell, #swapPanel .inline-message { width: min(1120px, 100%); margin-left: auto; margin-right: auto; }
+#swapPanel .form-intro { margin-bottom: 16px; line-height: 1.45; }
+#swapPanel .mode-toggle { margin-bottom: 16px; gap: 12px; }
+#swapPanel .mode-toggle label { min-height: 62px; padding: 12px 14px 12px 42px; border-radius: 12px; box-shadow: 0 8px 18px rgba(20, 45, 85, .045); }
 #swapPanel .mode-toggle input { left: 14px; width: 16px; height: 16px; }
 #swapPanel .mode-toggle strong { margin-bottom: 2px; font-size: 13px; }
 #swapPanel .mode-toggle small { font-size: 11px; line-height: 1.3; }
-#swapPanel .swap-form-shell { max-width: 980px; padding: 14px; border-radius: 13px; background: linear-gradient(180deg, #fbfdff, #f8fbff); box-shadow: inset 0 1px 0 rgba(255,255,255,.9); }
-#swapPanel .form-grid { grid-template-columns: repeat(3, minmax(170px, 1fr)); gap: 12px; margin-bottom: 12px; }
+#swapPanel .swap-form-shell { padding: 16px; border-radius: 14px; background: linear-gradient(180deg, #fbfdff, #f8fbff); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 10px 24px rgba(16, 33, 63, .045); }
+#swapPanel .form-grid { grid-template-columns: repeat(2, minmax(260px, 1fr)); gap: 13px 16px; margin-bottom: 14px; }
 #swapPanel label { gap: 5px; font-size: 11px; }
-#swapPanel select, #swapPanel input { height: 34px; padding-top: 0; padding-bottom: 0; border-radius: 7px; font-size: 12px; }
-#swapPanel textarea { min-height: 64px; padding: 9px 10px; border-radius: 8px; font-size: 12px; }
-#swapPanel #submitSwap { min-height: 34px; padding: 0 13px; font-size: 12px; }
+#swapPanel select, #swapPanel input { height: 36px; padding-top: 0; padding-bottom: 0; border-radius: 8px; font-size: 12px; }
+#swapPanel textarea { min-height: 76px; padding: 9px 10px; border-radius: 8px; font-size: 12px; }
+#swapPanel #submitSwap { min-height: 36px; padding: 0 14px; font-size: 12px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 16px; margin-bottom: 16px; }
 .form-grid .full { grid-column: 1 / -1; }
 input, textarea { padding: 10px 12px; border: 1px solid #b9c6d7; border-radius: 8px; color: var(--navy); background: white; }
