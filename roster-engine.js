@@ -35,6 +35,87 @@
       || createsSevenDayStretch(row.date, candidateDate)
     ));
   }
+  const cloneAssignments = (assignments) => JSON.parse(JSON.stringify(assignments));
+  const isNA = (availability, code, date) => Boolean(availability[code]?.[date.slice(0, 7)]?.[date]);
+  const assignmentPositions = (assignments) => assignments.flatMap((row, rowIndex) => row.assigned.map((code, assignedIndex) => ({ rowIndex, assignedIndex, code, date: row.date })));
+  function countConsecutiveSaturdays(assignments, people) {
+    return people.filter((code) => assignments
+      .filter((row) => row.assigned.includes(code) && parse(row.date).getDay() === 6)
+      .some((row) => hasConsecutiveSaturday(assignments, code, row.date, row.date))).length;
+  }
+  function countSameDayTypeSecondShifts(assignments, people) {
+    return people.filter((code) => {
+      const dayTypes = assignments.filter((row) => row.assigned.includes(code)).map((row) => parse(row.date).getDay());
+      return dayTypes.length === 2 && dayTypes[0] === dayTypes[1];
+    }).length;
+  }
+  function hardValid(assignments, people, maxMonthlyLoad) {
+    for (const row of assignments) {
+      if (new Set(row.assigned).size !== row.assigned.length) return false;
+    }
+    for (const code of people) {
+      const rows = assignments.filter((row) => row.assigned.includes(code));
+      if (rows.length > maxMonthlyLoad) return false;
+      for (const row of rows) if (hasScheduleConflict(assignments, code, row.date, row.date)) return false;
+    }
+    return true;
+  }
+  function countPreviousTwoShiftRepeats(assignments, people, previousLoad) {
+    return people.filter((code) => previousLoad[code] >= 2 && assignments.filter((row) => row.assigned.includes(code)).length > 1).length;
+  }
+  function comfortScore(assignments, people, availability, previousLoad, maxMonthlyLoad) {
+    if (!hardValid(assignments, people, maxMonthlyLoad)) return Number.POSITIVE_INFINITY;
+    const overrideCount = assignments.reduce((sum, row) => sum + row.assigned.filter((code) => isNA(availability, code, row.date)).length, 0);
+    return overrideCount * 1000000
+      + countPreviousTwoShiftRepeats(assignments, people, previousLoad) * 10000
+      + countConsecutiveSaturdays(assignments, people) * 1000
+      + countSameDayTypeSecondShifts(assignments, people);
+  }
+  function refreshOverrides(assignments, availability, submissions, month) {
+    const warnings = [];
+    for (const row of assignments) {
+      row.overrides = row.assigned
+        .filter((code) => isNA(availability, code, row.date))
+        .map((code) => ({ name: code, submittedAt: submissions[code]?.[month]?.savedAt || null, reason: "Comfort optimized NA override" }))
+        .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0) || a.name.localeCompare(b.name));
+      if (row.overrides.length) warnings.push(`${row.date}: ${row.overrides.map((item) => item.name).join(", ")} assigned by availability override`);
+      if (row.assigned.length < row.required) warnings.push(`${row.date}: short ${row.required - row.assigned.length}`);
+    }
+    return warnings;
+  }
+  function optimizeComfort({ assignments, people, availability, submissions, month, previousLoad, maxMonthlyLoad = 2, beamWidth = 80, maxDepth = 8 }) {
+    const start = cloneAssignments(assignments);
+    let best = start, bestScore = comfortScore(start, people, availability, previousLoad, maxMonthlyLoad);
+    let frontier = [{ assignments: start, score: bestScore, key: JSON.stringify(start.map((row) => row.assigned)) }];
+    const seen = new Set(frontier.map((item) => item.key));
+    for (let depth = 0; depth < maxDepth; depth += 1) {
+      const next = [];
+      for (const item of frontier) {
+        const positions = assignmentPositions(item.assignments);
+        for (let i = 0; i < positions.length; i += 1) {
+          for (let j = i + 1; j < positions.length; j += 1) {
+            const a = positions[i], b = positions[j];
+            if (a.rowIndex === b.rowIndex) continue;
+            const candidate = cloneAssignments(item.assignments);
+            candidate[a.rowIndex].assigned[a.assignedIndex] = b.code;
+            candidate[b.rowIndex].assigned[b.assignedIndex] = a.code;
+            const key = JSON.stringify(candidate.map((row) => row.assigned));
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const score = comfortScore(candidate, people, availability, previousLoad, maxMonthlyLoad);
+            if (!Number.isFinite(score)) continue;
+            next.push({ assignments: candidate, score, key });
+            if (score < bestScore) { best = candidate; bestScore = score; }
+          }
+        }
+      }
+      if (!next.length) break;
+      frontier = next.sort((a, b) => a.score - b.score || a.key.localeCompare(b.key)).slice(0, beamWidth);
+    }
+    const optimized = cloneAssignments(best);
+    const warnings = refreshOverrides(optimized, availability, submissions, month);
+    return { assignments: optimized, warnings };
+  }
 
   function generateGroup({ people, monthDate, availability, submissions, rosters, requiredForDate, maxMonthlyLoad = 2 }) {
     const month = monthOf(monthDate);
@@ -116,7 +197,8 @@
       if (row.overrides.length) warnings.push(`${row.date}: ${row.overrides.map((item) => item.name).join(", ")} assigned by availability override`);
       if (row.assigned.length < row.required) warnings.push(`${row.date}: short ${row.required - row.assigned.length}`);
     }
-    return { assignments, warnings, previousLoad, targetLoad, monthlyLoad };
+    const optimized = optimizeComfort({ assignments, people, availability, submissions, month, previousLoad, maxMonthlyLoad });
+    return { assignments: optimized.assignments, warnings: optimized.warnings, previousLoad, targetLoad, monthlyLoad };
   }
   function generate({ people, monthDate, availability, submissions, rosters, signaturePeople = [] }) {
     const signatureSet = new Set(signaturePeople);
