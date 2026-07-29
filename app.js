@@ -181,8 +181,7 @@ function renderWindow() {
   $("windowNotice").classList.toggle("closed", !open);
   $("windowNotice").classList.toggle("compact", generatedMode);
   $("windowTitle").textContent = open ? "Not Available date collection is open" : afterCutoff ? (roster ? "Weekend roster is generated" : "Roster generation is pending") : "Not Available date collection is closed";
-  const parts = istNowParts(appNow());
-  const openText = parts.year === 2026 && parts.month === 7 ? "22nd 11:00 AM IST for this fresh collection cycle" : "15th 11:00 AM IST every month";
+  const openText = "15th 11:00 AM IST every month";
   $("windowMessage").textContent = open
     ? `Select and save only the dates you are Not Available to work for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}. The window closes at 28th 7:00 PM IST.`
     : afterCutoff && roster
@@ -356,7 +355,7 @@ function renderCurrentRoster() {
   const month = activeRosterMonthKey();
   const selected = selectedCurrentPerson();
   $("currentRosterTitle").textContent = roster ? `${parseDate(`${month}-01`).toLocaleDateString("en-IN", { month: "long", year: "numeric" })} roster` : "No current roster yet";
-  $("currentRosterSubtitle").textContent = roster ? "Select your name to highlight your shifts and avoid searching through every date." : "The current roster will appear here once it is generated.";
+  $("currentRosterSubtitle").textContent = roster ? "Select your name to highlight your shifts." : "The current roster will appear here once it is generated.";
   $("currentRosterBadge").textContent = roster ? (roster.status === "finalized" ? "Finalized" : "Generated") : "Pending";
   $("currentRosterBadge").className = `status ${roster ? "ready" : "pending"}`;
   if (!roster) {

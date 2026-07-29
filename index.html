@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#163a70">
   <title>Weekend Shift Roster</title>
-  <link rel="stylesheet" href="styles.css?v=41">
+  <link rel="stylesheet" href="styles.css?v=42">
 </head>
 <body>
   <header class="topbar">
@@ -59,14 +59,6 @@
   </dialog>
 
   <main>
-    <section id="windowNotice" class="notice">
-      <div>
-        <strong id="windowTitle">Checking submission window…</strong>
-        <span id="windowMessage">Not Available date collection opens from the 15th to the 28th for next month.</span>
-      </div>
-      <span id="windowBadge" class="window-badge">—</span>
-    </section>
-
     <nav class="tabs" aria-label="Roster workflows">
       <button class="tab active" data-panel="currentRosterPanel" type="button">Current roster</button>
       <button class="tab" data-panel="availabilityPanel" type="button">Submit NA dates</button>
@@ -97,6 +89,13 @@
     </section>
 
     <div id="availabilityPanel" class="panel">
+      <section id="windowNotice" class="notice">
+        <div>
+          <strong id="windowTitle">Checking submission window…</strong>
+          <span id="windowMessage">Not Available date collection opens from the 15th to the 28th for next month.</span>
+        </div>
+        <span id="windowBadge" class="window-badge">—</span>
+      </section>
 
     <section class="controls card">
         <label>
@@ -218,10 +217,10 @@
       ["SIG003", "Jagannath Sivaramakrishnan", "signature"], ["SIG004", "Sandeep Hangaragi", "signature"]
     ];
   </script>
-  <script src="config.js?v=41"></script>
-  <script src="backend.js?v=41"></script>
-  <script src="historical-rosters.js?v=41"></script>
-  <script src="roster-engine.js?v=41"></script>
-  <script src="app.js?v=41"></script>
+  <script src="config.js?v=42"></script>
+  <script src="backend.js?v=42"></script>
+  <script src="historical-rosters.js?v=42"></script>
+  <script src="roster-engine.js?v=42"></script>
+  <script src="app.js?v=42"></script>
 </body>
 </html>
