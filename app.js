@@ -53,6 +53,7 @@ const displayName = (code) => displayNames[code] || code;
 const sortByDisplayName = (codes) => codes.slice().sort((a, b) => displayName(a).localeCompare(displayName(b), "en-IN", { sensitivity: "base" }));
 const teamOptions = (codes) => codes.map((value) => ({ value, label: displayName(value) }));
 const selectedPerson = () => $("personSelect")?.value || "";
+const selectedCurrentPerson = () => $("currentPersonSelect")?.value || "";
 const cleanCode = (value) => value.trim().toUpperCase();
 const isPersonUnlocked = () => !sharedMode || (selectedPerson() && selectedPerson() === activeEmployee && Boolean(activeEmployeeAccessCode));
 function istNowParts(date = new Date()) {
@@ -192,9 +193,9 @@ function renderWindow() {
   $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 28th 7 PM" : afterCutoff && roster ? "Generated" : afterCutoff ? "Roster pending" : "Closed";
   $("saveButton").disabled = !open || !dirty || !selectedPerson() || !isPersonUnlocked();
   const controls = document.querySelector("#availabilityPanel .controls");
-  if (controls) controls.hidden = generatedMode;
+  if (controls) controls.hidden = false;
   const generatedHeader = $("generatedCalendarHeader");
-  if (generatedHeader) generatedHeader.hidden = !generatedMode;
+  if (generatedHeader) generatedHeader.hidden = true;
   const generatedTitle = $("generatedCalendarTitle");
   if (generatedTitle) generatedTitle.textContent = shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
   const status = $("personUnlockStatus");
@@ -317,6 +318,57 @@ function bindNATooltips() {
 function shownRoster() {
   if (previewMode === "before") return null;
   return state.rosters[monthKey(shownMonth)] || null;
+}
+function currentMonthKey() {
+  const parts = istNowParts(appNow());
+  return monthKey(new Date(parts.year, parts.month - 1, 1));
+}
+function activeRosterMonthKey() {
+  const next = nextRosterMonthKey();
+  const current = currentMonthKey();
+  if (isCutoffPassed() && state.rosters[next]) return next;
+  if (state.rosters[current]) return current;
+  const available = Object.entries(state.rosters)
+    .filter(([, roster]) => roster?.assignments?.length && ["published", "finalized", "needs-review"].includes(roster.status))
+    .map(([month]) => month)
+    .sort();
+  return available.at(-1) || "";
+}
+function activeRoster() {
+  const month = activeRosterMonthKey();
+  return month ? state.rosters[month] : null;
+}
+function formatRosterDate(key) {
+  return parseDate(key).toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" });
+}
+function renderCurrentRoster() {
+  const roster = activeRoster();
+  const month = activeRosterMonthKey();
+  const selected = selectedCurrentPerson();
+  $("currentRosterTitle").textContent = roster ? `${parseDate(`${month}-01`).toLocaleDateString("en-IN", { month: "long", year: "numeric" })} roster` : "No current roster yet";
+  $("currentRosterSubtitle").textContent = roster ? "Select your name to highlight your shifts and avoid searching through every date." : "The current roster will appear here once it is generated.";
+  $("currentRosterBadge").textContent = roster ? (roster.status === "finalized" ? "Finalized" : "Generated") : "Pending";
+  $("currentRosterBadge").className = `status ${roster ? "ready" : "pending"}`;
+  if (!roster) {
+    $("currentMyShiftCard").className = "my-shifts-card card empty";
+    $("currentMyShiftCard").innerHTML = "No roster has been generated yet.";
+    $("currentRosterGrid").innerHTML = `<div class="roster-empty-note">Roster pending.</div>`;
+    return;
+  }
+  const myRows = selected ? roster.assignments.filter((row) => row.assigned.includes(selected)) : [];
+  $("currentMyShiftCard").className = `my-shifts-card card ${selected ? "" : "empty"}`;
+  $("currentMyShiftCard").innerHTML = selected
+    ? `<div class="my-shifts-header"><strong>${safe(displayName(selected))}</strong><span class="summary-pill">${myRows.length} shift${myRows.length === 1 ? "" : "s"}</span></div><div class="shift-pill-list">${myRows.length ? myRows.map((row) => `<span class="shift-pill">${safe(formatRosterDate(row.date))} · ${TEAM_ROLE[selected] === "signature" ? "Signature" : "Basic engineer"}</span>`).join("") : `<span class="shift-pill">No shifts in this roster</span>`}</div>`
+    : "Select your name above to see your shifts instantly.";
+  const pairs = [];
+  for (let index = 0; index < roster.assignments.length; index += 2) pairs.push(roster.assignments.slice(index, index + 2));
+  $("currentRosterGrid").innerHTML = pairs.map((pair) => `<div class="weekend-pair">${pair.map((row) => {
+    const basic = row.assigned.filter((code) => TEAM_ROLE[code] !== "signature");
+    const signature = row.assigned.filter((code) => TEAM_ROLE[code] === "signature");
+    const highlighted = selected && row.assigned.includes(selected);
+    const chips = (codes, sig = false) => codes.map((code) => `<span class="roster-name-chip ${sig ? "signature" : ""} ${code === selected ? "mine" : ""}">${safe(displayName(code))}</span>`).join("");
+    return `<article class="roster-day-card ${highlighted ? "highlighted" : ""}"><div class="roster-day-head"><strong>${safe(formatRosterDate(row.date))}</strong><span>${parseDate(row.date).getDay() === 6 ? "Saturday" : "Sunday"}</span></div><div class="roster-group"><div class="roster-group-label">Basic engineers</div><div class="roster-name-list">${chips(basic)}</div></div><div class="roster-group"><div class="roster-group-label">Signature</div><div class="roster-name-list">${chips(signature, true)}</div></div></article>`;
+  }).join("")}</div>`).join("");
 }
 function renderCalendar() {
   const year = shownMonth.getFullYear(), month = shownMonth.getMonth();
@@ -757,6 +809,7 @@ function importData(event) {
 }
 
 document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => { hideNATooltip(); document.querySelectorAll(".tab, .panel").forEach((item) => item.classList.remove("active")); tab.classList.add("active"); $(tab.dataset.panel).classList.add("active"); }));
+$("currentPersonSelect").addEventListener("change", renderCurrentRoster);
 $("personSelect").addEventListener("change", () => {
   const person = selectedPerson();
   if (person !== activeEmployee) {
@@ -812,6 +865,7 @@ async function initializeSharedMode() {
     $("accountButton").disabled = true;
     document.querySelectorAll("#availabilityPanel button, #swapPanel button, #adminPanel button, #availabilityPanel select, #swapPanel select, #adminPanel select, #adminPanel input").forEach((control) => control.disabled = true);
     renderWindow();
+    renderCurrentRoster();
     return;
   }
   if (!sharedMode) {
@@ -834,7 +888,8 @@ async function initializeSharedMode() {
   }
 }
 
-function renderAll() { renderCalendar(); renderRoster(); renderSwap(); renderAdmin(); }
+function renderAll() { renderCurrentRoster(); renderCalendar(); renderRoster(); renderSwap(); renderAdmin(); }
+setOptions($("currentPersonSelect"), teamOptions(sortByDisplayName(PEOPLE)), "Select your name");
 setOptions($("personSelect"), teamOptions(sortByDisplayName(PEOPLE)), "Select your name");
 loadPersonDraft(); renderAll(); updateClock();
 setInterval(() => {

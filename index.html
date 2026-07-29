@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#163a70">
   <title>Weekend Shift Roster</title>
-  <link rel="stylesheet" href="styles.css?v=38">
+  <link rel="stylesheet" href="styles.css?v=39">
 </head>
 <body>
   <header class="topbar">
@@ -68,12 +68,35 @@
     </section>
 
     <nav class="tabs" aria-label="Roster workflows">
-      <button class="tab active" data-panel="availabilityPanel" type="button">Calendar</button>
+      <button class="tab active" data-panel="currentRosterPanel" type="button">Current roster</button>
+      <button class="tab" data-panel="availabilityPanel" type="button">Submit NA dates</button>
       <button class="tab" data-panel="swapPanel" type="button">Swap / cover</button>
       <button class="tab" data-panel="adminPanel" type="button">Admin</button>
     </nav>
 
-    <div id="availabilityPanel" class="panel active">
+    <section id="currentRosterPanel" class="panel active current-roster-panel">
+      <section class="current-roster-hero card">
+        <div>
+          <p class="eyebrow dark">Current roster</p>
+          <h2 id="currentRosterTitle">Loading roster…</h2>
+          <p id="currentRosterSubtitle">Select your name to highlight your shifts.</p>
+        </div>
+        <label>
+          Find my shifts
+          <select id="currentPersonSelect"></select>
+        </label>
+      </section>
+      <section id="currentMyShiftCard" class="my-shifts-card card"></section>
+      <section class="roster-board card">
+        <div class="section-heading">
+          <div><span>Full weekend view</span><h2>Weekend assignments</h2></div>
+          <span id="currentRosterBadge" class="status pending">Checking</span>
+        </div>
+        <div id="currentRosterGrid" class="weekend-roster-grid"></div>
+      </section>
+    </section>
+
+    <div id="availabilityPanel" class="panel">
 
     <section class="controls card">
         <label>
@@ -84,7 +107,7 @@
       <div class="month-switcher" aria-label="Calendar month controls">
         <button id="prevMonth" class="icon-button" type="button" aria-label="Previous month">←</button>
         <div>
-          <span>Not Available dates for</span>
+          <span>Submit Not Available dates for</span>
           <strong id="monthTitle"></strong>
         </div>
         <button id="nextMonth" class="icon-button" type="button" aria-label="Next month">→</button>
@@ -195,10 +218,10 @@
       ["SIG003", "Jagannath Sivaramakrishnan", "signature"], ["SIG004", "Sandeep Hangaragi", "signature"]
     ];
   </script>
-  <script src="config.js?v=38"></script>
-  <script src="backend.js?v=38"></script>
-  <script src="historical-rosters.js?v=38"></script>
-  <script src="roster-engine.js?v=38"></script>
-  <script src="app.js?v=38"></script>
+  <script src="config.js?v=39"></script>
+  <script src="backend.js?v=39"></script>
+  <script src="historical-rosters.js?v=39"></script>
+  <script src="roster-engine.js?v=39"></script>
+  <script src="app.js?v=39"></script>
 </body>
 </html>
