@@ -319,6 +319,16 @@ function shownRoster() {
   if (previewMode === "before") return null;
   return state.rosters[monthKey(shownMonth)] || null;
 }
+function nextSubmissionMonthDate() {
+  const parts = istNowParts(appNow());
+  const target = new Date(parts.year, parts.month, 1);
+  return isCutoffPassed() && state.rosters[monthKey(target)]
+    ? new Date(target.getFullYear(), target.getMonth() + 1, 1)
+    : target;
+}
+function resetShownMonthToSubmissionTarget() {
+  if (!demoMode && !previewMode) shownMonth = nextSubmissionMonthDate();
+}
 function currentMonthKey() {
   const parts = istNowParts(appNow());
   return monthKey(new Date(parts.year, parts.month - 1, 1));
@@ -360,15 +370,13 @@ function renderCurrentRoster() {
   $("currentMyShiftCard").innerHTML = selected
     ? `<div class="my-shifts-header"><strong>${safe(displayName(selected))}</strong><span class="summary-pill">${myRows.length} shift${myRows.length === 1 ? "" : "s"}</span></div><div class="shift-pill-list">${myRows.length ? myRows.map((row) => `<span class="shift-pill">${safe(formatRosterDate(row.date))} · ${TEAM_ROLE[selected] === "signature" ? "Signature" : "Basic engineer"}</span>`).join("") : `<span class="shift-pill">No shifts in this roster</span>`}</div>`
     : "Select your name above to see your shifts instantly.";
-  const pairs = [];
-  for (let index = 0; index < roster.assignments.length; index += 2) pairs.push(roster.assignments.slice(index, index + 2));
-  $("currentRosterGrid").innerHTML = pairs.map((pair) => `<div class="weekend-pair">${pair.map((row) => {
+  $("currentRosterGrid").innerHTML = roster.assignments.map((row) => {
     const basic = row.assigned.filter((code) => TEAM_ROLE[code] !== "signature");
     const signature = row.assigned.filter((code) => TEAM_ROLE[code] === "signature");
     const highlighted = selected && row.assigned.includes(selected);
     const chips = (codes, sig = false) => codes.map((code) => `<span class="roster-name-chip ${sig ? "signature" : ""} ${code === selected ? "mine" : ""}">${safe(displayName(code))}</span>`).join("");
     return `<article class="roster-day-card ${highlighted ? "highlighted" : ""}"><div class="roster-day-head"><strong>${safe(formatRosterDate(row.date))}</strong><span>${parseDate(row.date).getDay() === 6 ? "Saturday" : "Sunday"}</span></div><div class="roster-group"><div class="roster-group-label">Basic engineers</div><div class="roster-name-list">${chips(basic)}</div></div><div class="roster-group"><div class="roster-group-label">Signature</div><div class="roster-name-list">${chips(signature, true)}</div></div></article>`;
-  }).join("")}</div>`).join("");
+  }).join("");
 }
 function renderCalendar() {
   const year = shownMonth.getFullYear(), month = shownMonth.getMonth();
@@ -880,6 +888,7 @@ async function initializeSharedMode() {
     const remote = await window.RosterBackend.loadState();
     if (remote) state = normalizeState({ ...emptyState(), ...remote });
     displayNames = { ...displayNames, ...Object.fromEntries((remote.team || []).map((member) => [member.employee_code, member.full_name])) };
+    resetShownMonthToSubmissionTarget();
     currentProfile = { role: "employee", employee_code: selectedPerson(), full_name: selectedPerson() ? displayName(selectedPerson()) : "Open team form" };
     loadPersonDraft(); renderAll();
   } catch (error) {
@@ -891,6 +900,7 @@ async function initializeSharedMode() {
 function renderAll() { renderCurrentRoster(); renderCalendar(); renderRoster(); renderSwap(); renderAdmin(); }
 setOptions($("currentPersonSelect"), teamOptions(sortByDisplayName(PEOPLE)), "Select your name");
 setOptions($("personSelect"), teamOptions(sortByDisplayName(PEOPLE)), "Select your name");
+resetShownMonthToSubmissionTarget();
 loadPersonDraft(); renderAll(); updateClock();
 setInterval(() => {
   updateClock();
