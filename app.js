@@ -375,7 +375,10 @@ function renderCurrentRoster() {
     const signature = row.assigned.filter((code) => TEAM_ROLE[code] === "signature");
     const highlighted = selected && row.assigned.includes(selected);
     const chips = (codes, sig = false) => codes.map((code) => `<span class="roster-name-chip ${sig ? "signature" : ""} ${code === selected ? "mine" : ""}">${safe(displayName(code))}</span>`).join("");
-    return `<article class="roster-day-card ${highlighted ? "highlighted" : ""}"><div class="roster-day-head"><strong>${safe(formatRosterDate(row.date))}</strong><span>${parseDate(row.date).getDay() === 6 ? "Saturday" : "Sunday"}</span></div><div class="roster-group"><div class="roster-group-label">Basic engineers</div><div class="roster-name-list">${chips(basic)}</div></div><div class="roster-group"><div class="roster-group-label">Signature</div><div class="roster-name-list">${chips(signature, true)}</div></div></article>`;
+    const date = parseDate(row.date);
+    const shortDay = date.getDay() === 6 ? "Sat" : "Sun";
+    const shortDate = date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+    return `<article class="roster-day-card ${highlighted ? "highlighted" : ""}"><div class="roster-day-head"><strong>${safe(shortDate)}</strong><span>${shortDay}</span></div><div class="roster-group"><div class="roster-group-label">Basic engineers</div><div class="roster-name-list">${chips(basic)}</div></div><div class="roster-group"><div class="roster-group-label">Signature</div><div class="roster-name-list">${chips(signature, true)}</div></div></article>`;
   }).join("");
 }
 function renderCalendar() {

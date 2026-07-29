@@ -87,17 +87,17 @@ button, .button { min-height: 38px; padding: 0 14px; display: inline-flex; align
 .shift-pill-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .shift-pill { padding: 8px 10px; border: 1px solid #cfe0f8; border-radius: 12px; color: #174b8e; background: #eef6ff; font-size: 12px; font-weight: 850; }
 .roster-board { padding: 14px; }
-.weekend-roster-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
-.roster-day-card { min-height: 0; padding: 10px; border: 1px solid #d7e3f2; border-radius: 13px; background: linear-gradient(180deg, #ffffff, #f9fbff); box-shadow: 0 8px 20px rgba(16, 33, 63, .05); }
-.roster-day-card.highlighted { border-color: #6fa3ed; box-shadow: 0 16px 34px rgba(29, 99, 213, .14); }
+.weekend-roster-grid { display: grid; grid-template-columns: repeat(5, minmax(180px, 1fr)); gap: 12px; align-items: stretch; }
+.roster-day-card { min-width: 0; min-height: 0; padding: 11px; border: 1px solid #d7e3f2; border-radius: 14px; background: linear-gradient(180deg, #ffffff, #f9fbff); box-shadow: 0 8px 20px rgba(16, 33, 63, .05); }
+.roster-day-card.highlighted { border-color: #1d63d5; background: linear-gradient(145deg, #e9f2ff 0%, #ffffff 62%, #dbeafe 100%); box-shadow: 0 18px 42px rgba(29, 99, 213, .24), inset 0 0 0 2px rgba(29, 99, 213, .22); }
 .roster-day-head { margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .roster-day-head strong { font-size: 14px; }
 .roster-day-head span { color: var(--muted); font-size: 10px; font-weight: 850; text-transform: uppercase; }
 .roster-group { margin-top: 7px; }
 .roster-group-label { margin-bottom: 5px; color: var(--muted); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
-.roster-name-list { display: flex; flex-wrap: wrap; gap: 4px; }
-.roster-name-chip { padding: 5px 7px; border-radius: 8px; color: #24466d; background: #eef4fb; font-size: 10px; font-weight: 800; line-height: 1.15; }
-.roster-name-chip.mine { color: #082b61; background: #d9eaff; box-shadow: inset 0 0 0 2px #1d63d5; }
+.roster-name-list { display: flex; flex-wrap: wrap; gap: 5px; }
+.roster-name-chip { max-width: 100%; padding: 5px 7px; border-radius: 8px; color: #24466d; background: #eef4fb; font-size: 10px; font-weight: 800; line-height: 1.18; overflow-wrap: anywhere; }
+.roster-name-chip.mine { color: #082b61; background: #cfe3ff; box-shadow: inset 0 0 0 2px #1d63d5, 0 6px 14px rgba(29, 99, 213, .18); }
 .roster-name-chip.signature { color: #6a4a00; background: #fff2ca; }
 .roster-name-chip.signature.mine { color: #4b3300; background: #ffe39a; box-shadow: inset 0 0 0 2px #c58a00; }
 .roster-empty-note { padding: 28px; border: 1px dashed #bdc9d8; border-radius: 14px; color: var(--muted); text-align: center; }
