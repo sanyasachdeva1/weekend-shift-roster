@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#163a70">
   <title>Weekend Shift Roster</title>
-  <link rel="stylesheet" href="styles.css?v=49">
+  <link rel="stylesheet" href="styles.css?v=50">
 </head>
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">Operations · Weekend coverage</p>
+      <p class="eyebrow">Operations · Weekend Coverage</p>
       <h1>Weekend Shift Roster</h1>
     </div>
     <div class="account-area">
@@ -27,14 +27,14 @@
   <dialog id="authDialog">
     <div id="authForm" class="auth-card">
       <button id="closeAuth" class="dialog-close" type="button" aria-label="Close">×</button>
-      <p class="eyebrow dark">Shared roster database</p>
-      <h2>No sign-in required</h2>
+      <p class="eyebrow dark">Shared Roster Database</p>
+      <h2>No Sign-In Required</h2>
       <p>This roster is configured as an open team form. Select your own name and submit only the dates you are Not Available to work.</p>
       <button id="googleSignIn" class="google-button" type="button"><span class="google-g">G</span> Continue with Google</button>
       <p id="authMessage" class="inline-message"></p>
       <div id="claimSection" class="claim-section" hidden>
-        <label>Your full name<select id="claimName"></select></label>
-        <button id="claimIdentity" class="primary" type="button">Request name mapping</button>
+        <label>Your Full Name<select id="claimName"></select></label>
+        <button id="claimIdentity" class="primary" type="button">Request Name Mapping</button>
         <small>An administrator must approve this Google account before roster access is enabled.</small>
       </div>
     </div>
@@ -43,15 +43,15 @@
   <dialog id="employeeCodeDialog">
     <form id="employeeCodeForm" class="auth-card">
       <button id="closeEmployeeCode" class="dialog-close" type="button" aria-label="Close">×</button>
-      <p class="eyebrow dark">Personal access</p>
-      <h2 id="employeeCodeTitle">Unlock Not Available dates</h2>
+      <p class="eyebrow dark">Personal Access</p>
+      <h2 id="employeeCodeTitle">Unlock Not Available Dates</h2>
       <p>Enter your personal code to edit and save only the dates you are Not Available to work.</p>
       <label>
-        Personal code
+        Personal Code
         <input id="employeeCodeInput" type="password" autocomplete="off" placeholder="Enter your code">
       </label>
       <div class="dialog-actions">
-        <button id="unlockEmployee" class="primary" type="submit">Unlock my calendar</button>
+        <button id="unlockEmployee" class="primary" type="submit">Unlock My Calendar</button>
         <button id="cancelEmployeeUnlock" class="secondary" type="button">Cancel</button>
       </div>
       <p id="employeeCodeMessage" class="inline-message"></p>
@@ -60,28 +60,28 @@
 
   <main>
     <nav class="tabs" aria-label="Roster workflows">
-      <button class="tab active" data-panel="currentRosterPanel" type="button">Current roster</button>
-      <button class="tab" data-panel="availabilityPanel" type="button">Submit NA dates</button>
-      <button class="tab" data-panel="swapPanel" type="button">Swap / cover</button>
+      <button class="tab active" data-panel="currentRosterPanel" type="button">Current Roster</button>
+      <button class="tab" data-panel="availabilityPanel" type="button">Submit NA Dates</button>
+      <button class="tab" data-panel="swapPanel" type="button">Swap / Cover</button>
       <button class="tab" data-panel="adminPanel" type="button">Admin</button>
     </nav>
 
     <section id="currentRosterPanel" class="panel active current-roster-panel">
       <section class="current-roster-hero card">
         <div>
-          <p class="eyebrow dark">Current roster</p>
-          <h2 id="currentRosterTitle">Loading roster…</h2>
+          <p class="eyebrow dark">Current Roster</p>
+          <h2 id="currentRosterTitle">Loading Roster…</h2>
           <p id="currentRosterSubtitle">Select your name to highlight your shifts.</p>
         </div>
         <label>
-          Find my shifts
+          Find My Shifts
           <select id="currentPersonSelect"></select>
         </label>
       </section>
       <section id="currentMyShiftCard" class="my-shifts-card card"></section>
       <section class="roster-board card">
         <div class="section-heading">
-          <div><span>Full weekend view</span><h2>Weekend assignments</h2></div>
+          <div><span>Full Weekend View</span><h2>Weekend Assignments</h2></div>
           <span id="currentRosterBadge" class="status pending">Checking</span>
         </div>
         <div id="currentRosterGrid" class="weekend-roster-grid"></div>
@@ -91,31 +91,31 @@
     <div id="availabilityPanel" class="panel">
       <section id="windowNotice" class="notice">
         <div>
-          <strong id="windowTitle">Checking submission window…</strong>
-          <span id="windowMessage">Not Available date collection opens from the 15th to the 28th for next month.</span>
+          <strong id="windowTitle">Checking Submission Window…</strong>
+          <span id="windowMessage">Not Available Date Collection Opens from the 15th to the 28th for next month.</span>
         </div>
         <span id="windowBadge" class="window-badge">—</span>
       </section>
 
     <section class="controls card">
         <label>
-          Team member
+          Team Member
           <select id="personSelect"></select>
         </label>
         <div id="personUnlockStatus" class="unlock-status locked">Select your name to unlock editing.</div>
       <div class="month-switcher" aria-label="Calendar month controls">
         <button id="prevMonth" class="icon-button" type="button" aria-label="Previous month">←</button>
         <div>
-          <span>Submit Not Available dates for</span>
+          <span>Submit Not Available Dates For</span>
           <strong id="monthTitle"></strong>
         </div>
         <button id="nextMonth" class="icon-button" type="button" aria-label="Next month">→</button>
       </div>
       <div class="actions">
-        <span id="saveState" class="save-state">No unsaved changes</span>
-        <button id="saveButton" class="primary" type="button">Submit Not Available dates</button>
-        <button id="exportNAProof" class="secondary" type="button">Export NA proof</button>
-        <button id="exportButton" class="secondary" type="button">Export data</button>
+        <span id="saveState" class="save-state">No Unsaved Changes</span>
+        <button id="saveButton" class="primary" type="button">Submit Not Available Dates</button>
+        <button id="exportNAProof" class="secondary" type="button">Export NA Proof</button>
+        <button id="exportButton" class="secondary" type="button">Export Data</button>
       </div>
     </section>
 
@@ -123,15 +123,15 @@
       <article class="calendar-card card">
         <div id="generatedCalendarHeader" class="generated-calendar-header" hidden>
           <div>
-            <span>Generated weekend roster</span>
+            <span>Generated Weekend Roster</span>
             <strong id="generatedCalendarTitle">August 2026</strong>
           </div>
-          <span class="status ready">Roster locked</span>
+          <span class="status ready">Roster Locked</span>
         </div>
         <div class="legend">
           <span><i class="dot available"></i>Available</span>
-          <span><i class="dot na"></i>Not available (NA)</span>
-          <span><i class="dot assigned"></i>Assigned shift</span>
+          <span><i class="dot na"></i>Not Available (NA)</span>
+          <span><i class="dot assigned"></i>Assigned Shift</span>
           <span><i class="dot weekday"></i>Weekday</span>
         </div>
         <div class="weekdays" aria-hidden="true">
@@ -147,8 +147,8 @@
     <section id="swapPanel" class="panel card form-card">
       <div class="section-heading swap-heading">
         <div>
-          <span>Swap / cover</span>
-          <h2>Request changes</h2>
+          <span>Swap / Cover</span>
+          <h2>Request Changes</h2>
         </div>
         <span id="swapEligibility" class="status pending">Checking</span>
       </div>
@@ -156,53 +156,53 @@
       <div class="mode-toggle" role="radiogroup" aria-label="Request type">
         <label>
           <input type="radio" name="swapType" value="swap" checked>
-          <span><strong>Swap shifts</strong><small>Exchange assigned dates.</small></span>
+          <span><strong>Swap Shifts</strong><small>Exchange assigned dates.</small></span>
         </label>
         <label>
           <input type="radio" name="swapType" value="cover">
-          <span><strong>Cover one shift</strong><small>Ask someone to take your shift.</small></span>
+          <span><strong>Cover One Shift</strong><small>Ask someone to take your shift.</small></span>
         </label>
       </div>
       <div class="swap-form-shell">
         <div class="form-grid">
-          <label>Your name<select id="swapRequester"></select></label>
-          <label>Your personal code<input id="swapAccessCode" type="password" autocomplete="off" placeholder="Enter your code"></label>
-          <label>Your assigned date<select id="swapFromDate"></select></label>
-          <label id="swapColleagueLabel">Swap with<select id="swapColleague"></select></label>
-          <label id="swapToDateLabel">Their assigned date<select id="swapToDate"></select></label>
+          <label>Your Name<select id="swapRequester"></select></label>
+          <label>Your Personal Code<input id="swapAccessCode" type="password" autocomplete="off" placeholder="Enter your code"></label>
+          <label>Your Assigned Date<select id="swapFromDate"></select></label>
+          <label id="swapColleagueLabel">Swap With<select id="swapColleague"></select></label>
+          <label id="swapToDateLabel">Their Assigned Date<select id="swapToDate"></select></label>
           <label class="full">Reason<textarea id="swapReason" rows="3" placeholder="Optional note for your colleague"></textarea></label>
         </div>
-        <button id="submitSwap" class="primary" type="button">Send request to colleague</button>
+        <button id="submitSwap" class="primary" type="button">Send Request To Colleague</button>
       </div>
       <p id="swapMessage" class="inline-message"></p>
-      <div class="section-heading lower"><div><span>Tracking</span><h2>Swap requests</h2></div></div>
+      <div class="section-heading lower"><div><span>Tracking</span><h2>Swap Requests</h2></div></div>
       <div id="swapRequestList" class="request-list"></div>
     </section>
 
     <section id="adminPanel" class="panel card form-card">
-      <div class="section-heading"><div><span>Admin access</span><h2>Restricted controls</h2></div><span id="adminAccessStatus" class="status pending">Locked</span></div>
+      <div class="section-heading"><div><span>Admin Access</span><h2>Restricted Controls</h2></div><span id="adminAccessStatus" class="status pending">Locked</span></div>
       <p class="form-intro">Enter your admin name and unique admin code. Every unlock and admin action is added to change history.</p>
       <div id="adminGate" class="admin-gate">
-        <label>Admin name<select id="adminName"></select></label>
-        <label>Admin code<input id="adminCode" type="password" autocomplete="off" placeholder="Enter your unique code"></label>
-        <button id="unlockAdmin" class="primary" type="button">Unlock admin controls</button>
+        <label>Admin Name<select id="adminName"></select></label>
+        <label>Admin Code<input id="adminCode" type="password" autocomplete="off" placeholder="Enter your unique code"></label>
+        <button id="unlockAdmin" class="primary" type="button">Unlock Admin Controls</button>
         <p id="adminAccessMessage" class="inline-message"></p>
       </div>
       <div id="adminControls" hidden>
         <div class="admin-session">
-          <span id="adminSessionText">No admin unlocked</span>
-          <button id="lockAdmin" class="secondary" type="button">Lock admin controls</button>
+          <span id="adminSessionText">No Admin Unlocked</span>
+          <button id="lockAdmin" class="secondary" type="button">Lock Admin Controls</button>
         </div>
         <div class="admin-toolbar">
-          <button id="generateButton" class="primary" type="button">Generate / regenerate roster</button>
-          <button id="finalizeButton" class="secondary" type="button">Finalize month</button>
-          <button id="downloadAudit" class="secondary" type="button">Download audit log</button>
+          <button id="generateButton" class="primary" type="button">Generate / Regenerate Roster</button>
+          <button id="finalizeButton" class="secondary" type="button">Finalize Month</button>
+          <button id="downloadAudit" class="secondary" type="button">Download Audit Log</button>
         </div>
-        <h3>Swap / cover status</h3>
+        <h3>Swap / Cover Status</h3>
         <div id="adminRequests" class="request-list"></div>
-        <h3>Pending account mappings</h3>
+        <h3>Pending Account Mappings</h3>
         <div id="mappingRequests" class="request-list"></div>
-        <h3>Change history</h3>
+        <h3>Change History</h3>
         <div class="table-wrap"><table><thead><tr><th>When</th><th>Administrator</th><th>Action</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table></div>
       </div>
     </section>
@@ -223,10 +223,10 @@
       ["SIG003", "Jagannath Sivaramakrishnan", "signature"], ["SIG004", "Sandeep Hangaragi", "signature"]
     ];
   </script>
-  <script src="config.js?v=49"></script>
-  <script src="backend.js?v=49"></script>
-  <script src="historical-rosters.js?v=49"></script>
-  <script src="roster-engine.js?v=49"></script>
-  <script src="app.js?v=49"></script>
+  <script src="config.js?v=50"></script>
+  <script src="backend.js?v=50"></script>
+  <script src="historical-rosters.js?v=50"></script>
+  <script src="roster-engine.js?v=50"></script>
+  <script src="app.js?v=50"></script>
 </body>
 </html>

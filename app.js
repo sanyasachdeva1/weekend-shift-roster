@@ -168,9 +168,9 @@ function updateClock() {
 function renderWindow() {
   if (sharedMissing) {
     $("windowNotice").classList.add("closed");
-    $("windowTitle").textContent = "Shared database setup required";
+    $("windowTitle").textContent = "Shared Database Setup Required";
     $("windowMessage").textContent = "Do not collect Not Available dates yet. This production page needs Supabase configured so submissions from all laptops save into one shared roster database.";
-    $("windowBadge").textContent = "Setup required";
+    $("windowBadge").textContent = "Setup Required";
     $("saveButton").disabled = true;
     return;
   }
@@ -180,16 +180,16 @@ function renderWindow() {
   const generatedMode = Boolean(afterCutoff && roster);
   $("windowNotice").classList.toggle("closed", !open);
   $("windowNotice").classList.toggle("compact", generatedMode);
-  $("windowTitle").textContent = open ? "Not Available date collection is open" : afterCutoff ? (roster ? "Weekend roster is generated" : "Roster generation is pending") : "Not Available date collection is closed";
+  $("windowTitle").textContent = open ? "Not Available Date Collection Is Open" : afterCutoff ? (roster ? "Weekend Roster Is Generated" : "Roster Generation Is Pending") : "Not Available Date Collection Is Closed";
   const openText = "15th 11:00 AM IST every month";
   $("windowMessage").textContent = open
     ? `Select and save only the dates you are Not Available to work for ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}. The window closes at 28th 7:00 PM IST.`
     : afterCutoff && roster
-      ? `Changes locked · ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })} roster is ready.`
+      ? `Changes Locked · ${shownMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })} Roster Is Ready.`
     : afterCutoff
-      ? `Not Available date changes are locked. Roster generation will appear here as soon as the cutoff job saves the roster.`
+      ? `Not Available Date Changes Are Locked. Roster Generation Will Appear Here After The Cutoff Job Saves The Roster.`
     : `The next-month form opens at ${openText} and closes at 28th 7:00 PM IST. After that, calendar changes are locked. ${demoMode ? "Demo override is active." : ""}`;
-  $("windowBadge").textContent = demoMode ? "Demo open" : open ? "Open · closes 28th 7 PM" : afterCutoff && roster ? "Generated" : afterCutoff ? "Roster pending" : "Closed";
+  $("windowBadge").textContent = demoMode ? "Demo Open" : open ? "Open · Closes 28th 7 PM" : afterCutoff && roster ? "Generated" : afterCutoff ? "Roster Pending" : "Closed";
   $("saveButton").disabled = !open || !dirty || !selectedPerson() || !isPersonUnlocked();
   const controls = document.querySelector("#availabilityPanel .controls");
   if (controls) controls.hidden = false;
@@ -201,17 +201,17 @@ function renderWindow() {
   if (status) {
     const person = selectedPerson();
     status.textContent = afterCutoff
-      ? "Not Available date changes are locked after cutoff."
+      ? "Not Available Date Changes Are Locked After Cutoff."
       : !person
-      ? "Select your name to unlock editing."
+      ? "Select Your Name To Unlock Editing."
       : isPersonUnlocked()
         ? `Unlocked for ${displayName(person)}`
-        : "Locked until your personal code is verified.";
+        : "Locked Until Your Personal Code Is Verified.";
     status.className = `unlock-status ${isPersonUnlocked() ? "ready" : "locked"}`;
   }
 }
 function updateSaveState() {
-  $("saveState").textContent = dirty ? "Unsaved changes" : "No unsaved changes";
+  $("saveState").textContent = dirty ? "Unsaved Changes" : "No Unsaved Changes";
   renderWindow();
 }
 
@@ -354,20 +354,20 @@ function renderCurrentRoster() {
   const roster = activeRoster();
   const month = activeRosterMonthKey();
   const selected = selectedCurrentPerson();
-  $("currentRosterTitle").textContent = roster ? `${parseDate(`${month}-01`).toLocaleDateString("en-IN", { month: "long", year: "numeric" })} roster` : "No current roster yet";
+  $("currentRosterTitle").textContent = roster ? `${parseDate(`${month}-01`).toLocaleDateString("en-IN", { month: "long", year: "numeric" })} Roster` : "No Current Roster Yet";
   $("currentRosterSubtitle").textContent = roster ? "Select your name to highlight your shifts." : "The current roster will appear here once it is generated.";
   $("currentRosterBadge").textContent = roster ? (roster.status === "finalized" ? "Finalized" : "Generated") : "Pending";
   $("currentRosterBadge").className = `status ${roster ? "ready" : "pending"}`;
   if (!roster) {
     $("currentMyShiftCard").className = "my-shifts-card card empty";
-    $("currentMyShiftCard").innerHTML = "No roster has been generated yet.";
-    $("currentRosterGrid").innerHTML = `<div class="roster-empty-note">Roster pending.</div>`;
+    $("currentMyShiftCard").innerHTML = "No Roster Has Been Generated Yet.";
+    $("currentRosterGrid").innerHTML = `<div class="roster-empty-note">Roster Pending.</div>`;
     return;
   }
   const myRows = selected ? roster.assignments.filter((row) => row.assigned.includes(selected)) : [];
   $("currentMyShiftCard").className = `my-shifts-card card ${selected ? "" : "empty"}`;
   $("currentMyShiftCard").innerHTML = selected
-    ? `<div class="my-shifts-header"><strong>${safe(displayName(selected))}</strong><span class="summary-pill">${myRows.length} shift${myRows.length === 1 ? "" : "s"}</span></div><div class="shift-pill-list">${myRows.length ? myRows.map((row) => `<span class="shift-pill">${safe(formatRosterDate(row.date))}</span>`).join("") : `<span class="shift-pill">No shifts in this roster</span>`}</div>`
+    ? `<div class="my-shifts-header"><strong>${safe(displayName(selected))}</strong><span class="summary-pill">${myRows.length} Shift${myRows.length === 1 ? "" : "s"}</span></div><div class="shift-pill-list">${myRows.length ? myRows.map((row) => `<span class="shift-pill">${safe(formatRosterDate(row.date))}</span>`).join("") : `<span class="shift-pill">No Shifts In This Roster</span>`}</div>`
     : "Select your name above to see your shifts instantly.";
   $("currentRosterGrid").innerHTML = roster.assignments.map((row) => {
     const basic = row.assigned.filter((code) => TEAM_ROLE[code] !== "signature");
@@ -377,7 +377,7 @@ function renderCurrentRoster() {
     const date = parseDate(row.date);
     const shortDay = date.getDay() === 6 ? "Sat" : "Sun";
     const shortDate = date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-    return `<article class="roster-day-card ${highlighted ? "highlighted" : ""}"><div class="roster-day-head"><strong>${safe(shortDate)}</strong><span>${shortDay}</span></div><div class="roster-group"><div class="roster-group-label">Basic engineers</div><div class="roster-name-list">${chips(basic)}</div></div><div class="roster-group"><div class="roster-group-label">Signature</div><div class="roster-name-list">${chips(signature, true)}</div></div></article>`;
+    return `<article class="roster-day-card ${highlighted ? "highlighted" : ""}"><div class="roster-day-head"><strong>${safe(shortDate)}</strong><span>${shortDay}</span></div><div class="roster-group"><div class="roster-group-label">Basic Engineers</div><div class="roster-name-list">${chips(basic)}</div></div><div class="roster-group"><div class="roster-group-label">Signature</div><div class="roster-name-list">${chips(signature, true)}</div></div></article>`;
   }).join("");
 }
 function renderCalendar() {
@@ -394,7 +394,7 @@ function renderCalendar() {
     const weekendHeader = row
       ? `<div class="day-top roster-day-top"><span class="day-number">${day}</span></div>`
       : afterCutoff
-        ? `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">Roster pending</span></div>`
+        ? `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">Roster Pending</span></div>`
       : `<div class="day-top"><span class="day-number">${day}</span><span class="day-label">${person ? (na ? "Your NA" : "Available") : "Select name"} <span class="label-separator">•</span> ${teamNA.length} NA</span></div>`;
     const canSelectDate = isSubmissionOpen() && Boolean(person) && isPersonUnlocked();
     const naAttribute = teamNA.length ? ` data-na="${safe(`NA: ${teamNA.join(", ")}`)}"` : "";
@@ -495,14 +495,14 @@ function renderRoster() {
   }
   summary.hidden = false;
   if (!roster) {
-    summary.innerHTML = `<span class="summary-pill">Roster pending cutoff</span><span class="summary-pill">Saturday needs 4 + 1 signature</span><span class="summary-pill">Sunday needs 3 + 1 signature</span>`;
+    summary.innerHTML = `<span class="summary-pill">Roster Pending Cutoff</span><span class="summary-pill">Saturday Needs 4 + 1 Signature</span><span class="summary-pill">Sunday Needs 3 + 1 Signature</span>`;
     warnings.hidden = true;
     return;
   }
   const ready = ["published", "finalized"].includes(roster.status);
   const assignedCount = roster.assignments.reduce((sum, row) => sum + row.assigned.length, 0);
   const peopleCovered = new Set(roster.assignments.flatMap((row) => row.assigned)).size;
-  summary.innerHTML = `<span class="summary-pill ${ready ? "ready" : "warning"}">${safe(roster.status === "finalized" ? "Finalized roster" : ready ? "Generated roster" : "Needs review")}</span><span class="summary-pill">${assignedCount} shifts planned</span><span class="summary-pill">${peopleCovered}/${PEOPLE.length} people scheduled</span>`;
+  summary.innerHTML = `<span class="summary-pill ${ready ? "ready" : "warning"}">${safe(roster.status === "finalized" ? "Finalized Roster" : ready ? "Generated Roster" : "Needs Review")}</span><span class="summary-pill">${assignedCount} Shifts Planned</span><span class="summary-pill">${peopleCovered}/${PEOPLE.length} People Scheduled</span>`;
   warnings.hidden = !roster.warnings.length; warnings.textContent = roster.warnings.join(" · ");
 }
 function rosterIsValid(roster) {
@@ -557,25 +557,25 @@ function renderSwap() {
   hideNATooltip();
   const requester = swapRequesterSelected ? $("swapRequester").value : "", previousFrom = $("swapFromDate").value, previousColleague = $("swapColleague").value, previousTo = $("swapToDate").value, roster = currentSwapRoster();
   const mode = requestType();
-  $("swapColleagueLabel").firstChild.textContent = mode === "cover" ? "Cover by" : "Swap with";
+  $("swapColleagueLabel").firstChild.textContent = mode === "cover" ? "Cover By" : "Swap With";
   $("swapToDateLabel").hidden = mode === "cover";
-  $("submitSwap").textContent = mode === "cover" ? "Send cover request to colleague" : "Send request to colleague";
+  $("submitSwap").textContent = mode === "cover" ? "Send Cover Request To Colleague" : "Send Request To Colleague";
   setOptions($("swapRequester"), teamOptions(sortByDisplayName(PEOPLE.filter((name) => !INACTIVE.has(name)))), "Select your name"); $("swapRequester").value = requester;
   const assignedDates = employeeDates(roster, requester);
-  setOptions($("swapFromDate"), assignedDates, assignedDates.length ? "Select your assigned shift" : "No assigned dates");
+  setOptions($("swapFromDate"), assignedDates, assignedDates.length ? "Select Your Assigned Shift" : "No Assigned Dates");
   if ([...$("swapFromDate").options].some((option) => option.value === previousFrom)) $("swapFromDate").value = previousFrom;
   const fromDate = $("swapFromDate").value;
   const colleagues = mode === "cover" ? eligibleCoverColleagues(roster, requester, fromDate) : eligibleSwapColleagues(roster, requester, fromDate);
-  setOptions($("swapColleague"), teamOptions(sortByDisplayName(colleagues)), colleagues.length ? (mode === "cover" ? "Select someone to cover" : "Select an available colleague") : "No eligible colleagues");
+  setOptions($("swapColleague"), teamOptions(sortByDisplayName(colleagues)), colleagues.length ? (mode === "cover" ? "Select Someone To Cover" : "Select An Available Colleague") : "No Eligible Colleagues");
   if (colleagues.includes(previousColleague)) $("swapColleague").value = previousColleague;
   const colleague = $("swapColleague").value;
   const dates = mode === "cover" ? [] : eligibleSwapDates(roster, requester, colleague, fromDate);
-  setOptions($("swapToDate"), dates, dates.length ? "Select their shift" : "No eligible shift dates");
+  setOptions($("swapToDate"), dates, dates.length ? "Select Their Shift" : "No Eligible Shift Dates");
   $("swapToDate").disabled = mode === "cover";
   if (dates.some((option) => option.value === previousTo)) $("swapToDate").value = previousTo;
   const eligible = Boolean(roster) && (demoMode || realNow.getDate() >= 1);
   updateSwapButton();
-  $("swapEligibility").textContent = eligible ? (demoMode ? "Demo eligible" : "Requests open") : "No current roster";
+  $("swapEligibility").textContent = eligible ? (demoMode ? "Demo Eligible" : "Requests Open") : "No Current Roster";
   renderSwapRequestList();
   document.querySelectorAll(".revoke-swap").forEach((button) => button.addEventListener("click", () => revokeSwap(button.dataset.id)));
   document.querySelectorAll(".colleague-approve").forEach((button) => button.addEventListener("click", () => decideColleagueSwap(button.dataset.id, true)));
@@ -584,7 +584,7 @@ function renderSwap() {
 function renderSwapRequestList() {
   const total = state.swapRequests.length;
   if (!total) {
-    $("swapRequestList").innerHTML = `<div class="empty-state">No swap requests.</div>`;
+    $("swapRequestList").innerHTML = `<div class="empty-state">No Swap Requests.</div>`;
     return;
   }
   const pages = Math.max(1, Math.ceil(total / SWAP_REQUESTS_PER_PAGE));
@@ -592,7 +592,7 @@ function renderSwapRequestList() {
   const newestFirst = state.swapRequests.slice().reverse();
   const start = (swapRequestPage - 1) * SWAP_REQUESTS_PER_PAGE;
   const visibleRequests = newestFirst.slice(start, start + SWAP_REQUESTS_PER_PAGE);
-  const pageLabel = total <= SWAP_REQUESTS_PER_PAGE ? `${total} request${total === 1 ? "" : "s"}` : `Page ${swapRequestPage} of ${pages} · ${total} requests`;
+  const pageLabel = total <= SWAP_REQUESTS_PER_PAGE ? `${total} Request${total === 1 ? "" : "s"}` : `Page ${swapRequestPage} Of ${pages} · ${total} Requests`;
   $("swapRequestList").innerHTML = `
     <div class="request-page-summary">
       <span>${pageLabel}</span>
@@ -604,15 +604,15 @@ function renderSwapRequestList() {
   $("swapRequestList").querySelector(".request-page-next")?.addEventListener("click", () => { swapRequestPage += 1; renderSwap(); });
 }
 function requestCards(requests, admin = false, reverse = true) {
-  if (!requests.length) return `<div class="empty-state">No swap requests.</div>`;
+  if (!requests.length) return `<div class="empty-state">No Swap Requests.</div>`;
   const viewer = $("swapRequester")?.value;
   return (reverse ? requests.slice().reverse() : requests).map((request) => {
     const isCover = request.type === "cover";
     const requestTypeLabel = isCover ? "Cover" : "Swap";
     const requestStatusClass = request.status.replace(/[^a-z-]/g, "-");
-    const colleagueAction = !admin && request.status === "awaiting-colleague" && request.colleague === viewer ? `<div class="request-actions"><button class="primary colleague-approve" data-id="${request.id}">${isCover ? "Approve cover with my code" : "Approve swap with my code"}</button><button class="danger colleague-reject" data-id="${request.id}">Decline with my code</button></div>` : "";
-    const revokeAction = !admin && ["awaiting-colleague", "colleague-approved", "approved"].includes(request.status) && request.requester === viewer ? `<button class="danger revoke-swap" data-id="${request.id}">${request.status === "approved" ? "Revoke approved swap" : "Revoke request"}</button>` : "";
-    const statusText = request.status === "awaiting-colleague" ? `Waiting for ${displayName(request.colleague)} approval` : request.status === "colleague-approved" ? "Colleague approved" : request.status;
+    const colleagueAction = !admin && request.status === "awaiting-colleague" && request.colleague === viewer ? `<div class="request-actions"><button class="primary colleague-approve" data-id="${request.id}">${isCover ? "Approve Cover With My Code" : "Approve Swap With My Code"}</button><button class="danger colleague-reject" data-id="${request.id}">Decline With My Code</button></div>` : "";
+    const revokeAction = !admin && ["awaiting-colleague", "colleague-approved", "approved"].includes(request.status) && request.requester === viewer ? `<button class="danger revoke-swap" data-id="${request.id}">${request.status === "approved" ? "Revoke Approved Swap" : "Revoke Request"}</button>` : "";
+    const statusText = request.status === "awaiting-colleague" ? `Waiting For ${displayName(request.colleague)} Approval` : request.status === "colleague-approved" ? "Colleague Approved" : request.status;
     const helper = !admin && request.status === "awaiting-colleague" && request.colleague !== viewer ? `<em class="request-hint">For approval, ${safe(displayName(request.colleague))} should select their own name, enter their personal code, then approve or decline.</em>` : "";
     const title = isCover ? `${safe(displayName(request.colleague))} covers for ${safe(displayName(request.requester))}` : `${safe(displayName(request.requester))} ↔ ${safe(displayName(request.colleague))}`;
     const detail = isCover ? `${safe(request.fromDate)} covered on behalf of ${safe(displayName(request.requester))}` : `${safe(request.fromDate)} exchanged with ${safe(request.toDate)}`;
@@ -764,10 +764,10 @@ function renderAdmin() {
   $("adminAccessStatus").className = `status ${unlocked ? "ready" : "pending"}`;
   if (unlocked) $("adminSessionText").textContent = `${activeAdmin} has admin controls unlocked for this browser session.`;
   $("adminRequests").innerHTML = `<div class="empty-state">Swap and cover changes are completed directly after colleague code approval. Full request activity is available in the change history below.</div>`;
-  $("mappingRequests").innerHTML = identityRequests.length ? identityRequests.map((request) => `<div class="request-card"><div><strong>${safe(request.full_name)}</strong><small>Account mapping request · ${new Date(request.created_at).toLocaleString("en-IN")}</small></div><div class="request-actions"><button class="primary approve-mapping" data-id="${request.id}">Approve</button><button class="danger reject-mapping" data-id="${request.id}">Reject</button></div></div>`).join("") : `<div class="empty-state">No pending account mappings.</div>`;
+  $("mappingRequests").innerHTML = identityRequests.length ? identityRequests.map((request) => `<div class="request-card"><div><strong>${safe(request.full_name)}</strong><small>Account Mapping Request · ${new Date(request.created_at).toLocaleString("en-IN")}</small></div><div class="request-actions"><button class="primary approve-mapping" data-id="${request.id}">Approve</button><button class="danger reject-mapping" data-id="${request.id}">Reject</button></div></div>`).join("") : `<div class="empty-state">No Pending Account Mappings.</div>`;
   document.querySelectorAll(".approve-mapping").forEach((button) => button.addEventListener("click", () => decideIdentity(button.dataset.id, true)));
   document.querySelectorAll(".reject-mapping").forEach((button) => button.addEventListener("click", () => decideIdentity(button.dataset.id, false)));
-  $("auditBody").innerHTML = state.audit.slice().reverse().map((entry) => `<tr><td>${new Date(entry.at).toLocaleString("en-IN")}</td><td>${safe(entry.actor)}</td><td>${safe(entry.action)}</td><td>${safe(entry.details)}</td></tr>`).join("") || `<tr><td colspan="4">No changes logged yet.</td></tr>`;
+  $("auditBody").innerHTML = state.audit.slice().reverse().map((entry) => `<tr><td>${new Date(entry.at).toLocaleString("en-IN")}</td><td>${safe(entry.actor)}</td><td>${safe(entry.action)}</td><td>${safe(entry.details)}</td></tr>`).join("") || `<tr><td colspan="4">No Changes Logged Yet.</td></tr>`;
 }
 async function decideIdentity(id, approved) {
   try {
