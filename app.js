@@ -592,7 +592,8 @@ function requestCards(requests, admin = false) {
     const helper = !admin && request.status === "awaiting-colleague" && request.colleague !== viewer ? `<em class="request-hint">For approval, ${safe(displayName(request.colleague))} should select their own name, enter their personal code, then approve or decline.</em>` : "";
     const title = isCover ? `${safe(displayName(request.colleague))} covers for ${safe(displayName(request.requester))}` : `${safe(displayName(request.requester))} ↔ ${safe(displayName(request.colleague))}`;
     const detail = isCover ? `${safe(request.fromDate)} covered on behalf of ${safe(displayName(request.requester))}` : `${safe(request.fromDate)} exchanged with ${safe(request.toDate)}`;
-    return `<div class="request-card ${isCover ? "cover" : "swap"}"><div class="request-card-copy"><div class="request-badges"><span class="request-type-badge ${isCover ? "cover" : "swap"}">${requestTypeLabel}</span><span class="request-status-badge ${requestStatusClass}">${safe(statusText)}</span></div><strong>${title}</strong><p>${detail}</p><small>${safe(request.reason || "No reason supplied")} · ${new Date(request.createdAt).toLocaleString("en-IN")}</small>${helper}</div><div class="request-card-actions">${colleagueAction || revokeAction}</div></div>`;
+    const reasonText = request.reason ? `${safe(request.reason)} · ` : "";
+    return `<div class="request-card ${isCover ? "cover" : "swap"}"><div class="request-card-copy"><div class="request-badges"><span class="request-type-badge ${isCover ? "cover" : "swap"}">${requestTypeLabel}</span><span class="request-status-badge ${requestStatusClass}">${safe(statusText)}</span></div><strong>${title}</strong><p>${detail}</p><small>${reasonText}${new Date(request.createdAt).toLocaleString("en-IN")}</small>${helper}</div><div class="request-card-actions">${colleagueAction || revokeAction}</div></div>`;
   }).join("");
 }
 function applyApprovedRequest(request, actor) {
