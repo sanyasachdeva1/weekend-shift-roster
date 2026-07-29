@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#163a70">
   <title>Weekend Shift Roster</title>
-  <link rel="stylesheet" href="styles.css?v=46">
+  <link rel="stylesheet" href="styles.css?v=47">
 </head>
 <body>
   <header class="topbar">
@@ -145,16 +145,22 @@
     </div>
 
     <section id="swapPanel" class="panel card form-card">
-      <div class="section-heading"><div><h2>Request a swap or cover</h2></div><span id="swapEligibility" class="status pending">Checking</span></div>
-      <p class="form-intro">Choose a two-person swap, or ask someone to cover one assigned shift on your behalf. Your code is required to send the request; the selected colleague must select their own name and enter their own code to approve it. Once both sides approve, the roster updates automatically and the change is logged for admins.</p>
+      <div class="section-heading swap-heading">
+        <div>
+          <span>Swap / cover</span>
+          <h2>Request changes</h2>
+        </div>
+        <span id="swapEligibility" class="status pending">Checking</span>
+      </div>
+      <p class="form-intro">Use this form to send the request. Keep it within the same roster group.</p>
       <div class="mode-toggle" role="radiogroup" aria-label="Request type">
         <label>
           <input type="radio" name="swapType" value="swap" checked>
-          <span><strong>Swap two shifts</strong><small>Exchange your assigned date with another colleague’s assigned date.</small></span>
+          <span><strong>Swap two shifts</strong><small>Exchange assigned dates.</small></span>
         </label>
         <label>
           <input type="radio" name="swapType" value="cover">
-          <span><strong>Cover one shift</strong><small>Ask a colleague to work your assigned date on your behalf.</small></span>
+          <span><strong>Cover one shift</strong><small>Ask someone to take your shift.</small></span>
         </label>
       </div>
       <div class="swap-form-shell">
@@ -217,10 +223,10 @@
       ["SIG003", "Jagannath Sivaramakrishnan", "signature"], ["SIG004", "Sandeep Hangaragi", "signature"]
     ];
   </script>
-  <script src="config.js?v=46"></script>
-  <script src="backend.js?v=46"></script>
-  <script src="historical-rosters.js?v=46"></script>
-  <script src="roster-engine.js?v=46"></script>
-  <script src="app.js?v=46"></script>
+  <script src="config.js?v=47"></script>
+  <script src="backend.js?v=47"></script>
+  <script src="historical-rosters.js?v=47"></script>
+  <script src="roster-engine.js?v=47"></script>
+  <script src="app.js?v=47"></script>
 </body>
 </html>

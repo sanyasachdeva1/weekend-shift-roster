@@ -365,7 +365,7 @@ function renderCurrentRoster() {
   const myRows = selected ? roster.assignments.filter((row) => row.assigned.includes(selected)) : [];
   $("currentMyShiftCard").className = `my-shifts-card card ${selected ? "" : "empty"}`;
   $("currentMyShiftCard").innerHTML = selected
-    ? `<div class="my-shifts-header"><strong>${safe(displayName(selected))}</strong><span class="summary-pill">${myRows.length} shift${myRows.length === 1 ? "" : "s"}</span></div><div class="shift-pill-list">${myRows.length ? myRows.map((row) => `<span class="shift-pill">${safe(formatRosterDate(row.date))} · ${TEAM_ROLE[selected] === "signature" ? "Signature" : "Basic engineer"}</span>`).join("") : `<span class="shift-pill">No shifts in this roster</span>`}</div>`
+    ? `<div class="my-shifts-header"><strong>${safe(displayName(selected))}</strong><span class="summary-pill">${myRows.length} shift${myRows.length === 1 ? "" : "s"}</span></div><div class="shift-pill-list">${myRows.length ? myRows.map((row) => `<span class="shift-pill">${safe(formatRosterDate(row.date))}</span>`).join("") : `<span class="shift-pill">No shifts in this roster</span>`}</div>`
     : "Select your name above to see your shifts instantly.";
   $("currentRosterGrid").innerHTML = roster.assignments.map((row) => {
     const basic = row.assigned.filter((code) => TEAM_ROLE[code] !== "signature");
@@ -584,13 +584,15 @@ function requestCards(requests, admin = false) {
   const viewer = $("swapRequester")?.value;
   return requests.slice().reverse().map((request) => {
     const isCover = request.type === "cover";
+    const requestTypeLabel = isCover ? "Cover" : "Swap";
+    const requestStatusClass = request.status.replace(/[^a-z-]/g, "-");
     const colleagueAction = !admin && request.status === "awaiting-colleague" && request.colleague === viewer ? `<div class="request-actions"><button class="primary colleague-approve" data-id="${request.id}">${isCover ? "Approve cover with my code" : "Approve swap with my code"}</button><button class="danger colleague-reject" data-id="${request.id}">Decline with my code</button></div>` : "";
     const revokeAction = !admin && ["awaiting-colleague", "colleague-approved", "approved"].includes(request.status) && request.requester === viewer ? `<button class="danger revoke-swap" data-id="${request.id}">${request.status === "approved" ? "Revoke approved swap" : "Revoke request"}</button>` : "";
     const statusText = request.status === "awaiting-colleague" ? `Waiting for ${displayName(request.colleague)} approval` : request.status === "colleague-approved" ? "Colleague approved" : request.status;
     const helper = !admin && request.status === "awaiting-colleague" && request.colleague !== viewer ? `<em class="request-hint">For approval, ${safe(displayName(request.colleague))} should select their own name, enter their personal code, then approve or decline.</em>` : "";
     const title = isCover ? `${safe(displayName(request.colleague))} covers for ${safe(displayName(request.requester))}` : `${safe(displayName(request.requester))} ↔ ${safe(displayName(request.colleague))}`;
     const detail = isCover ? `${safe(request.fromDate)} covered on behalf of ${safe(displayName(request.requester))}` : `${safe(request.fromDate)} exchanged with ${safe(request.toDate)}`;
-    return `<div class="request-card"><div><strong>${title}</strong><p>${detail}</p><small>${safe(request.reason || "No reason supplied")} · ${new Date(request.createdAt).toLocaleString("en-IN")} · ${safe(statusText)}</small>${helper}</div>${colleagueAction || revokeAction}</div>`;
+    return `<div class="request-card ${isCover ? "cover" : "swap"}"><div class="request-card-copy"><div class="request-badges"><span class="request-type-badge ${isCover ? "cover" : "swap"}">${requestTypeLabel}</span><span class="request-status-badge ${requestStatusClass}">${safe(statusText)}</span></div><strong>${title}</strong><p>${detail}</p><small>${safe(request.reason || "No reason supplied")} · ${new Date(request.createdAt).toLocaleString("en-IN")}</small>${helper}</div><div class="request-card-actions">${colleagueAction || revokeAction}</div></div>`;
   }).join("");
 }
 function applyApprovedRequest(request, actor) {

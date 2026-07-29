@@ -175,9 +175,10 @@ th { color: var(--muted); background: #f7f9fc; font-size: 10px; text-transform: 
 .mode-toggle small { display: block; max-width: 520px; color: var(--muted); font-size: 12px; line-height: 1.35; }
 .mode-toggle label:has(input:checked) { border-color: var(--blue); background: linear-gradient(180deg, #f5f9ff, #eaf2ff); box-shadow: inset 0 0 0 1px rgba(29, 99, 213, .18), 0 14px 28px rgba(32, 91, 170, .12); }
 .swap-form-shell { padding: 16px; border: 1px solid #d8e2ef; border-radius: 14px; background: #fbfdff; }
+#swapPanel .swap-heading { width: min(1320px, 100%); margin-left: auto; margin-right: auto; }
 #swapPanel .section-heading, #swapPanel .form-intro, #swapPanel .mode-toggle, #swapPanel .swap-form-shell, #swapPanel .inline-message { width: min(1320px, 100%); margin-left: auto; margin-right: auto; }
-#swapPanel .form-intro { margin-bottom: 16px; line-height: 1.45; }
-#swapPanel .mode-toggle { margin-bottom: 16px; gap: 12px; }
+#swapPanel .form-intro { margin-bottom: 12px; line-height: 1.4; }
+#swapPanel .mode-toggle { margin-bottom: 12px; gap: 12px; }
 #swapPanel .mode-toggle label { min-height: 62px; padding: 12px 14px 12px 42px; border-radius: 12px; box-shadow: 0 8px 18px rgba(20, 45, 85, .045); }
 #swapPanel .mode-toggle input { left: 14px; width: 16px; height: 16px; }
 #swapPanel .mode-toggle strong { margin-bottom: 2px; font-size: 13px; }
@@ -188,6 +189,7 @@ th { color: var(--muted); background: #f7f9fc; font-size: 10px; text-transform: 
 #swapPanel select, #swapPanel input { height: 36px; padding-top: 0; padding-bottom: 0; border-radius: 8px; font-size: 12px; }
 #swapPanel textarea { min-height: 62px; padding: 9px 10px; border-radius: 8px; font-size: 12px; }
 #swapPanel #submitSwap { min-height: 36px; padding: 0 14px; font-size: 12px; }
+#swapPanel .request-list { width: min(1320px, 100%); margin-left: auto; margin-right: auto; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 16px; margin-bottom: 16px; }
 .form-grid .full { grid-column: 1 / -1; }
 input, textarea { padding: 10px 12px; border: 1px solid #b9c6d7; border-radius: 8px; color: var(--navy); background: white; }
@@ -196,9 +198,21 @@ textarea { resize: vertical; }
 .inline-message.error { color: var(--red); font-weight: 800; }
 .lower { margin-top: 28px; }
 .request-list { display: grid; gap: 10px; }
-.request-card { padding: 13px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: 9px; }
-.request-card p { margin: 3px 0; font-size: 12px; }
-.request-card small { color: var(--muted); }
+.request-card { padding: 15px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border: 1px solid #d9e3f1; border-radius: 14px; background: linear-gradient(180deg, #ffffff, #fbfdff); box-shadow: 0 10px 20px rgba(20, 45, 85, .05); }
+.request-card.swap { border-left: 4px solid #1d63d5; }
+.request-card.cover { border-left: 4px solid #16845b; }
+.request-card-copy { min-width: 0; display: grid; gap: 6px; }
+.request-card strong { display: block; color: var(--navy); font-size: 14px; }
+.request-card p { margin: 0; color: #4e5d72; font-size: 12px; }
+.request-card small { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.request-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.request-type-badge, .request-status-badge { padding: 5px 9px; border-radius: 99px; font-size: 10px; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; }
+.request-type-badge.swap { color: #0f4ea8; background: #e7f0ff; }
+.request-type-badge.cover { color: #116545; background: #e8f6ef; }
+.request-status-badge.awaiting-colleague { color: #8a5200; background: #fff0ce; }
+.request-status-badge.colleague-approved, .request-status-badge.approved { color: var(--green); background: #e5f6ee; }
+.request-status-badge.rejected, .request-status-badge.revoked { color: #9b2432; background: var(--red-soft); }
+.request-card-actions { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .request-hint { margin-top: 6px; display: block; color: #1d63d5; font-size: 11px; font-style: normal; font-weight: 800; }
 .request-actions { display: flex; gap: 7px; }
 .danger { border: 1px solid #e3a8ae; color: #a62c39; background: white; }
