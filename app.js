@@ -18,7 +18,6 @@ const STORAGE_KEY = query.get("storage") ? `weekend-roster-data-v4-${query.get("
 const ADMIN_SESSION_KEY = "weekend-roster-admin-session";
 const HISTORICAL_ROSTERS = globalThis.HISTORICAL_ROSTERS || {};
 const SUBMISSION_OPEN_MINUTE = ((15 - 1) * 24 * 60) + (11 * 60);
-const JULY_2026_RESET_OPEN_MINUTE = ((22 - 1) * 24 * 60) + (11 * 60);
 const SUBMISSION_CUTOFF_MINUTE = ((28 - 1) * 24 * 60) + (19 * 60);
 const $ = (id) => document.getElementById(id);
 const realNow = query.get("mockDate") ? new Date(`${query.get("mockDate")}T12:00:00+05:30`) : new Date();
@@ -73,8 +72,7 @@ const isSubmissionOpen = () => {
   if (sharedMissing) return false;
   const parts = istNowParts(appNow());
   const minute = monthMinute(parts);
-  const openMinute = parts.year === 2026 && parts.month === 7 ? JULY_2026_RESET_OPEN_MINUTE : SUBMISSION_OPEN_MINUTE;
-  return demoMode || (minute >= openMinute && minute < SUBMISSION_CUTOFF_MINUTE && monthKey(shownMonth) === nextRosterMonthKey());
+  return demoMode || (minute >= SUBMISSION_OPEN_MINUTE && minute < SUBMISSION_CUTOFF_MINUTE && monthKey(shownMonth) === nextRosterMonthKey());
 };
 
 function emptyState() { return { version: 2, availability: {}, submissions: {}, rosters: {}, swapRequests: [], audit: [] }; }
