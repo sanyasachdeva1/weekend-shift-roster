@@ -54,7 +54,7 @@ update public.team_members set full_name='Sunil Tiwari', coverage_group='basic',
 update public.team_members set full_name='Swetha Lakshme Sridharan', coverage_group='basic', active=true where employee_code='EMP020';
 update public.team_members set full_name='Vritti Mehrotra', coverage_group='basic', active=true where employee_code='EMP021';
 update public.team_members set full_name='Yokeswaran Yohadhandan', coverage_group='basic', active=true where employee_code='EMP022';
-update public.team_members set full_name='Aneesh U', coverage_group='signature', active=true where employee_code='SIG001';
+update public.team_members set full_name='Aneesh Krishnan U', coverage_group='signature', active=true where employee_code='SIG001';
 update public.team_members set full_name='Ankit Thapliyal', coverage_group='signature', active=true where employee_code='SIG002';
 update public.team_members set full_name='Jagannath Sivaramakrishnan', coverage_group='signature', active=true where employee_code='SIG003';
 update public.team_members set full_name='Sandeep Hangaragi', coverage_group='signature', active=true where employee_code='SIG004';

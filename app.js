@@ -2,6 +2,8 @@ const TEAM = window.PUBLIC_TEAM || [];
 const RETIRED_EMPLOYEE_CODES = new Set(["EMP014"]);
 const PEOPLE = TEAM.map(([code]) => code).filter((code) => !RETIRED_EMPLOYEE_CODES.has(code));
 const TEAM_ROLE = Object.fromEntries(TEAM.map(([code, , role = "basic"]) => [code, role]));
+const DISPLAY_NAME_OVERRIDES = { SIG001: "Aneesh Krishnan U" };
+const EXTERNAL_SIGNATURE_PREFIXES = ["KRK team"];
 const SIGNATURE_PEOPLE = PEOPLE.filter((code) => TEAM_ROLE[code] === "signature");
 const sameRosterGroup = (a, b) => TEAM_ROLE[a] === TEAM_ROLE[b];
 // No hard-coded PTO: anyone who does not submit NA dates is available by default.
@@ -50,7 +52,8 @@ const monthKey = (date) => dateKey(date).slice(0, 7);
 const parseDate = (key) => new Date(`${key}T12:00:00`);
 const initials = (name) => name.split(" ").slice(0, 2).map((part) => part[0]).join("");
 const safe = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
-const displayName = (code) => displayNames[code] || code;
+const displayName = (code) => DISPLAY_NAME_OVERRIDES[code] || displayNames[code] || code;
+const isSignatureAssignment = (code) => TEAM_ROLE[code] === "signature" || EXTERNAL_SIGNATURE_PREFIXES.some((prefix) => String(code).startsWith(prefix));
 const sortByDisplayName = (codes) => codes.slice().sort((a, b) => displayName(a).localeCompare(displayName(b), "en-IN", { sensitivity: "base" }));
 const teamOptions = (codes) => codes.map((value) => ({ value, label: displayName(value) }));
 const selectedPerson = () => $("personSelect")?.value || "";
@@ -370,8 +373,8 @@ function renderCurrentRoster() {
     ? `<div class="my-shifts-header"><strong>${safe(displayName(selected))}</strong><span class="summary-pill">${myRows.length} Shift${myRows.length === 1 ? "" : "s"}</span></div><div class="shift-pill-list">${myRows.length ? myRows.map((row) => `<span class="shift-pill">${safe(formatRosterDate(row.date))}</span>`).join("") : `<span class="shift-pill">No Shifts In This Roster</span>`}</div>`
     : "Select your name above to see your shifts instantly.";
   $("currentRosterGrid").innerHTML = roster.assignments.map((row) => {
-    const basic = row.assigned.filter((code) => TEAM_ROLE[code] !== "signature");
-    const signature = row.assigned.filter((code) => TEAM_ROLE[code] === "signature");
+    const basic = row.assigned.filter((code) => !isSignatureAssignment(code));
+    const signature = row.assigned.filter((code) => isSignatureAssignment(code));
     const highlighted = selected && row.assigned.includes(selected);
     const chips = (codes, sig = false) => codes.map((code) => `<span class="roster-name-chip ${sig ? "signature" : ""} ${code === selected ? "mine" : ""}">${safe(displayName(code))}</span>`).join("");
     const date = parseDate(row.date);
