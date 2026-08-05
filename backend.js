@@ -40,5 +40,7 @@
     async decideColleagueSwap(requestId, approved, colleagueCode, accessCode) { return rpc("open_decide_colleague_swap_request", { p_request_id: requestId, p_colleague_code: colleagueCode, p_access_code: accessCode, p_approved: approved }); },
     async revokeSwap(requestId, requesterCode, accessCode) { return rpc("open_revoke_swap_request", { p_request_id: requestId, p_requester_code: requesterCode, p_access_code: accessCode }); },
     async decideSwap(requestId, approved) { return rpc("decide_swap_request", { p_request_id: requestId, p_approved: approved }); },
+    async loadSpecialVolunteers(eventKey) { return rpc("open_get_special_weekend_volunteers", { p_event_key: eventKey }); },
+    async saveSpecialVolunteer(eventKey, employeeCode, accessCode, dates) { return rpc("open_save_special_weekend_volunteer", { p_event_key: eventKey, p_employee_code: employeeCode, p_access_code: accessCode, p_dates: dates }); },
   };
 })();

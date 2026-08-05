@@ -106,6 +106,15 @@ create table if not exists public.swap_requests (
   created_at timestamptz not null default now(),
   decided_at timestamptz
 );
+
+create table if not exists public.special_weekend_volunteers (
+  id uuid primary key default gen_random_uuid(),
+  event_key text not null,
+  employee_id uuid not null references public.team_members(id),
+  volunteer_date date not null,
+  saved_at timestamptz not null default now(),
+  unique(event_key, employee_id, volunteer_date)
+);
 alter table public.swap_requests add column if not exists request_type text not null default 'swap';
 alter table public.swap_requests alter column to_date drop not null;
 do $$
@@ -561,12 +570,51 @@ begin
   values(member.employee_code,member.full_name,case when req.request_type='cover' then 'COVER_REVOKED' else 'SWAP_REVOKED' end,'Requester revoked '||req.status||' '||req.request_type,coalesce(prior,to_jsonb(req)),case when req.status='approved' then (select roster from rosters where roster_month=roster_row.roster_month) else jsonb_build_object('status','revoked') end);
 end $$;
 
+create or replace function public.open_get_special_weekend_volunteers(p_event_key text) returns jsonb language sql stable security definer set search_path=public as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'event_key',v.event_key,
+    'employee_code',t.employee_code,
+    'full_name',t.full_name,
+    'coverage_group',t.coverage_group,
+    'volunteer_date',v.volunteer_date::text,
+    'saved_at',v.saved_at
+  ) order by v.volunteer_date,t.full_name),'[]'::jsonb)
+  from special_weekend_volunteers v
+  join team_members t on t.id=v.employee_id
+  where v.event_key=p_event_key and t.active;
+$$;
+
+create or replace function public.open_save_special_weekend_volunteer(p_event_key text,p_employee_code text,p_access_code text,p_dates text[]) returns void language plpgsql security definer set search_path=public as $$
+declare
+  member team_members;
+  allowed_dates date[]:=array['2026-08-08'::date,'2026-08-09'::date];
+  requested_dates date[];
+  requested_date date;
+  prior jsonb;
+  current_ist timestamp:=(now() at time zone 'Asia/Kolkata');
+begin
+  if p_event_key <> 'aug-2026-case-demand' then raise exception 'Unknown special volunteer event'; end if;
+  if current_ist >= timestamp '2026-08-07 19:00:00' then raise exception 'Special volunteer collection is closed'; end if;
+  member:=verify_employee_access(p_employee_code,p_access_code);
+  requested_dates:=coalesce((select array_agg(distinct value::date) from unnest(coalesce(p_dates,array[]::text[])) value),array[]::date[]);
+  foreach requested_date in array requested_dates loop
+    if not requested_date = any(allowed_dates) then raise exception 'This special request only accepts 8 Aug and 9 Aug'; end if;
+  end loop;
+  select open_get_special_weekend_volunteers(p_event_key) into prior;
+  delete from special_weekend_volunteers where event_key=p_event_key and employee_id=member.id;
+  foreach requested_date in array requested_dates loop
+    insert into special_weekend_volunteers(event_key,employee_id,volunteer_date) values(p_event_key,member.id,requested_date);
+  end loop;
+  insert into audit_log(actor_code,actor_name,action,details,before_data,after_data)
+  values(member.employee_code,member.full_name,'SPECIAL_VOLUNTEER_SAVED','Special weekend volunteer nomination saved for '||member.full_name,prior,open_get_special_weekend_volunteers(p_event_key));
+end $$;
+
 alter table profiles enable row level security; alter table team_members enable row level security; alter table identity_mapping_requests enable row level security;
 alter table availability enable row level security; alter table submissions enable row level security; alter table rosters enable row level security;
-alter table swap_requests enable row level security; alter table audit_log enable row level security; alter table employee_access_codes enable row level security; alter table admin_access_codes enable row level security;
+alter table swap_requests enable row level security; alter table special_weekend_volunteers enable row level security; alter table audit_log enable row level security; alter table employee_access_codes enable row level security; alter table admin_access_codes enable row level security;
 revoke all on all tables in schema public from anon,authenticated;
 grant execute on function my_profile(),request_identity_mapping(text,text),get_mapping_requests(),decide_identity_mapping(uuid,boolean),get_roster_state(),save_my_availability(text,text,text[]),save_roster(text,jsonb),finalize_roster(text),create_swap_request(jsonb),decide_colleague_swap_request(uuid,boolean),revoke_swap_request(uuid),decide_swap_request(uuid,boolean) to authenticated;
-grant execute on function open_get_roster_state(),open_verify_employee_access(text,text),open_save_availability(text,text,text,text[]),open_save_roster(text,jsonb,text,text),open_finalize_roster(text,text,text),open_create_swap_request(jsonb,text),open_decide_colleague_swap_request(uuid,text,text,boolean),open_revoke_swap_request(uuid,text,text) to anon,authenticated;
+grant execute on function open_get_roster_state(),open_verify_employee_access(text,text),open_save_availability(text,text,text,text[]),open_save_roster(text,jsonb,text,text),open_finalize_roster(text,text,text),open_create_swap_request(jsonb,text),open_decide_colleague_swap_request(uuid,text,text,boolean),open_revoke_swap_request(uuid,text,text),open_get_special_weekend_volunteers(text),open_save_special_weekend_volunteer(text,text,text,text[]) to anon,authenticated;
 
 -- Bootstrap the first administrator after their first Google login using the auth user UUID:
 -- update profiles set role='admin' where user_id='<auth-user-uuid>';

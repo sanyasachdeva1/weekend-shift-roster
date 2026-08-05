@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#163a70">
   <title>Weekend Shift Roster</title>
-  <link rel="stylesheet" href="styles.css?v=51">
+  <link rel="stylesheet" href="styles.css?v=52">
 </head>
 <body>
   <header class="topbar">
@@ -63,6 +63,7 @@
       <button class="tab active" data-panel="currentRosterPanel" type="button">Current Roster</button>
       <button class="tab" data-panel="availabilityPanel" type="button">Submit NA Dates</button>
       <button class="tab" data-panel="swapPanel" type="button">Swap / Cover</button>
+      <button class="tab" data-panel="specialVolunteerPanel" type="button">Special Volunteers</button>
       <button class="tab" data-panel="adminPanel" type="button">Admin</button>
     </nav>
 
@@ -179,6 +180,46 @@
       <div id="swapRequestList" class="request-list"></div>
     </section>
 
+    <section id="specialVolunteerPanel" class="panel card form-card special-panel">
+      <div class="section-heading">
+        <div>
+          <span>Special Coverage Request</span>
+          <h2>8 / 9 Aug Volunteers</h2>
+        </div>
+        <span id="specialVolunteerStatus" class="status pending">Checking</span>
+      </div>
+      <p class="form-intro">Due to higher case demand, nominate yourself if you can additionally support this weekend. This is voluntary only; regular roster rules do not apply.</p>
+      <div class="special-layout">
+        <form id="specialVolunteerForm" class="special-form-card">
+          <div class="form-grid special-form-grid">
+            <label>Your Name<select id="specialVolunteerName"></select></label>
+            <label>Your Personal Code<input id="specialVolunteerCode" type="password" autocomplete="off" placeholder="Enter your code"></label>
+          </div>
+          <div class="special-date-options" aria-label="Special volunteer dates">
+            <label class="special-date-card">
+              <input id="specialVolunteerSat" type="checkbox" value="2026-08-08">
+              <span><strong>Sat, 8 Aug</strong><small>I can support Saturday.</small></span>
+            </label>
+            <label class="special-date-card">
+              <input id="specialVolunteerSun" type="checkbox" value="2026-08-09">
+              <span><strong>Sun, 9 Aug</strong><small>I can support Sunday.</small></span>
+            </label>
+          </div>
+          <div class="special-actions">
+            <button id="saveSpecialVolunteer" class="primary" type="submit">Save My Nomination</button>
+            <span id="specialVolunteerMessage" class="inline-message"></span>
+          </div>
+        </form>
+        <aside class="special-list-card">
+          <div class="special-deadline">
+            <strong>Collection closes Friday, 7 Aug · 7:00 PM IST</strong>
+            <span>After closure, admins can use this list to update this weekend manually.</span>
+          </div>
+          <div id="specialVolunteerLists" class="special-volunteer-lists"></div>
+        </aside>
+      </div>
+    </section>
+
     <section id="adminPanel" class="panel card form-card">
       <div class="section-heading"><div><span>Admin Access</span><h2>Restricted Controls</h2></div><span id="adminAccessStatus" class="status pending">Locked</span></div>
       <p class="form-intro">Enter your admin name and unique admin code. Every unlock and admin action is added to change history.</p>
@@ -223,10 +264,10 @@
       ["SIG003", "Jagannath Sivaramakrishnan", "signature"], ["SIG004", "Sandeep Hangaragi", "signature"]
     ];
   </script>
-  <script src="config.js?v=51"></script>
-  <script src="backend.js?v=51"></script>
-  <script src="historical-rosters.js?v=51"></script>
-  <script src="roster-engine.js?v=51"></script>
-  <script src="app.js?v=51"></script>
+  <script src="config.js?v=52"></script>
+  <script src="backend.js?v=52"></script>
+  <script src="historical-rosters.js?v=52"></script>
+  <script src="roster-engine.js?v=52"></script>
+  <script src="app.js?v=52"></script>
 </body>
 </html>

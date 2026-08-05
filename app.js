@@ -21,6 +21,15 @@ const ADMIN_SESSION_KEY = "weekend-roster-admin-session";
 const HISTORICAL_ROSTERS = globalThis.HISTORICAL_ROSTERS || {};
 const SUBMISSION_OPEN_MINUTE = ((15 - 1) * 24 * 60) + (11 * 60);
 const SUBMISSION_CUTOFF_MINUTE = ((28 - 1) * 24 * 60) + (19 * 60);
+const SPECIAL_WEEKEND_EVENT = {
+  key: "aug-2026-case-demand",
+  title: "8 / 9 Aug Volunteers",
+  cutoff: new Date("2026-08-07T19:00:00+05:30"),
+  dates: [
+    { key: "2026-08-08", label: "Sat, 8 Aug" },
+    { key: "2026-08-09", label: "Sun, 9 Aug" }
+  ]
+};
 const $ = (id) => document.getElementById(id);
 const realNow = query.get("mockDate") ? new Date(`${query.get("mockDate")}T12:00:00+05:30`) : new Date();
 const appNow = () => query.get("mockDate") ? realNow : new Date();
@@ -80,7 +89,7 @@ const isSubmissionOpen = () => {
   return demoMode || (minute >= SUBMISSION_OPEN_MINUTE && minute < SUBMISSION_CUTOFF_MINUTE && monthKey(shownMonth) === nextRosterMonthKey());
 };
 
-function emptyState() { return { version: 2, availability: {}, submissions: {}, rosters: {}, swapRequests: [], audit: [] }; }
+function emptyState() { return { version: 2, availability: {}, submissions: {}, rosters: {}, swapRequests: [], specialVolunteers: {}, audit: [] }; }
 function loadState() {
   if (sharedMode || sharedMissing) return emptyState();
   try {
@@ -90,6 +99,7 @@ function loadState() {
 }
 function normalizeState(data) {
   data.rosters ||= {};
+  data.specialVolunteers ||= {};
   for (const [month, roster] of Object.entries(HISTORICAL_ROSTERS)) {
     data.rosters[month] ||= roster;
   }
@@ -110,6 +120,14 @@ async function refreshSharedState(render = true) {
   if (!sharedMode) return false;
   const remote = await window.RosterBackend.loadState();
   state = normalizeState({ ...emptyState(), ...remote });
+  try {
+    const volunteers = await window.RosterBackend.loadSpecialVolunteers(SPECIAL_WEEKEND_EVENT.key);
+    state.specialVolunteers[SPECIAL_WEEKEND_EVENT.key] = volunteers || [];
+    state.specialVolunteerError = "";
+  } catch (error) {
+    state.specialVolunteerError = "Special volunteer database setup is pending.";
+    console.error("Special volunteer load failed", error);
+  }
   if (remote?.team) displayNames = { ...displayNames, ...Object.fromEntries(remote.team.map((member) => [member.employee_code, member.full_name])) };
   if (render) { loadPersonDraft(); renderAll(); }
   return true;
@@ -724,6 +742,76 @@ async function submitSwap() {
   state.swapRequests.push(request); audit(type === "cover" ? "COVER_REQUESTED" : "SWAP_REQUESTED", displayName(request.requester), type === "cover" ? `${displayName(request.colleague)} covering ${request.fromDate}` : `${request.fromDate} with ${displayName(request.colleague)} on ${request.toDate}`, null, request);
   $("swapMessage").textContent = `${type === "cover" ? "Cover request" : "Swap request"} sent to ${displayName(request.colleague)} for approval first.`; $("swapReason").value = ""; swapRequestPage = 1; renderSwap(); renderAdmin();
 }
+function specialVolunteerRows() {
+  return state.specialVolunteers?.[SPECIAL_WEEKEND_EVENT.key] || [];
+}
+function specialCollectionOpen() {
+  return demoMode || appNow() < SPECIAL_WEEKEND_EVENT.cutoff;
+}
+function selectedSpecialDates() {
+  return SPECIAL_WEEKEND_EVENT.dates
+    .filter((date) => $(`specialVolunteer${date.key.endsWith("-08") ? "Sat" : "Sun"}`)?.checked)
+    .map((date) => date.key);
+}
+function setSpecialDatesForPerson(person) {
+  const volunteered = new Set(specialVolunteerRows().filter((row) => row.employee_code === person).map((row) => row.volunteer_date));
+  $("specialVolunteerSat").checked = volunteered.has("2026-08-08");
+  $("specialVolunteerSun").checked = volunteered.has("2026-08-09");
+}
+function renderSpecialVolunteers() {
+  const open = specialCollectionOpen();
+  const selected = $("specialVolunteerName")?.value || "";
+  const rows = specialVolunteerRows();
+  $("specialVolunteerStatus").textContent = state.specialVolunteerError ? "Setup Pending" : open ? "Open Until Fri 7 PM" : "Closed";
+  $("specialVolunteerStatus").className = `status ${state.specialVolunteerError ? "warning" : open ? "ready" : "pending"}`;
+  $("saveSpecialVolunteer").disabled = !open || !selected || Boolean(state.specialVolunteerError);
+  document.querySelectorAll(".special-date-card input").forEach((input) => input.disabled = !open || !selected || Boolean(state.specialVolunteerError));
+  const codeInput = $("specialVolunteerCode");
+  if (codeInput) codeInput.disabled = !open || !selected || Boolean(state.specialVolunteerError);
+  const message = $("specialVolunteerMessage");
+  if (state.specialVolunteerError && message && !message.textContent) {
+    message.textContent = state.specialVolunteerError;
+    message.className = "inline-message error";
+  }
+  $("specialVolunteerLists").innerHTML = SPECIAL_WEEKEND_EVENT.dates.map((date) => {
+    const volunteers = rows
+      .filter((row) => row.volunteer_date === date.key)
+      .sort((a, b) => displayName(a.employee_code).localeCompare(displayName(b.employee_code), "en-IN", { sensitivity: "base" }));
+    return `<article class="special-day-list"><div class="special-day-list-head"><strong>${safe(date.label)}</strong><span>${volunteers.length} Nomination${volunteers.length === 1 ? "" : "s"}</span></div>${volunteers.length ? `<div class="special-volunteer-names">${volunteers.map((row) => `<span>${safe(displayName(row.employee_code))}</span>`).join("")}</div>` : `<p>No Nominations Yet.</p>`}</article>`;
+  }).join("");
+}
+async function saveSpecialVolunteer(event) {
+  event?.preventDefault();
+  if (sharedMissing) { alert("Shared database is not configured yet. Special volunteers need shared storage."); return; }
+  if (!specialCollectionOpen()) { alert("Special volunteer collection is closed."); return; }
+  const person = $("specialVolunteerName").value;
+  const accessCode = cleanCode($("specialVolunteerCode").value);
+  const dates = selectedSpecialDates();
+  if (!person) { alert("Select your name first."); return; }
+  if (sharedMode && !accessCode) { alert("Enter your personal code before saving."); return; }
+  if (sharedMode) {
+    try {
+      await window.RosterBackend.saveSpecialVolunteer(SPECIAL_WEEKEND_EVENT.key, person, accessCode, dates);
+      $("specialVolunteerCode").value = "";
+      $("specialVolunteerMessage").textContent = dates.length ? "Nomination saved." : "Nomination cleared.";
+      $("specialVolunteerMessage").className = "inline-message";
+      await refreshSharedState();
+      setSpecialDatesForPerson(person);
+    } catch (error) {
+      $("specialVolunteerMessage").textContent = `Save failed: ${error.message}`;
+      $("specialVolunteerMessage").className = "inline-message error";
+    }
+    return;
+  }
+  const before = structuredClone(specialVolunteerRows());
+  state.specialVolunteers[SPECIAL_WEEKEND_EVENT.key] = specialVolunteerRows().filter((row) => row.employee_code !== person);
+  dates.forEach((date) => state.specialVolunteers[SPECIAL_WEEKEND_EVENT.key].push({ employee_code: person, volunteer_date: date, saved_at: new Date().toISOString() }));
+  audit("SPECIAL_VOLUNTEER_SAVED", displayName(person), `${dates.length} special volunteer date(s) saved`, before, state.specialVolunteers[SPECIAL_WEEKEND_EVENT.key]);
+  persist();
+  $("specialVolunteerMessage").textContent = dates.length ? "Nomination saved." : "Nomination cleared.";
+  $("specialVolunteerMessage").className = "inline-message";
+  renderSpecialVolunteers();
+}
 async function decideSwap(id, approved) {
   const admin = adminActor(); if (!admin) return;
   const request = state.swapRequests.find((item) => item.id === id); if (!request || request.status !== "colleague-approved") return;
@@ -868,6 +956,9 @@ $("lockAdmin").addEventListener("click", lockAdmin);
 $("swapRequester").addEventListener("change", () => { swapRequesterSelected = Boolean($("swapRequester").value); $("swapAccessCode").value = ""; renderSwap(); }); $("swapColleague").addEventListener("change", renderSwap); $("submitSwap").addEventListener("click", submitSwap);
 $("swapFromDate").addEventListener("change", renderSwap); $("swapToDate").addEventListener("change", updateSwapButton);
 document.querySelectorAll('input[name="swapType"]').forEach((input) => input.addEventListener("change", renderSwap));
+$("specialVolunteerName").addEventListener("change", () => { $("specialVolunteerCode").value = ""; $("specialVolunteerMessage").textContent = ""; setSpecialDatesForPerson($("specialVolunteerName").value); renderSpecialVolunteers(); });
+$("specialVolunteerForm").addEventListener("submit", saveSpecialVolunteer);
+document.querySelectorAll(".special-date-card input").forEach((input) => input.addEventListener("change", renderSpecialVolunteers));
 $("exportButton").addEventListener("click", () => downloadJSON(state, `weekend-roster-${monthKey(shownMonth)}.json`));
 $("exportNAProof").addEventListener("click", () => exportNAProof());
 $("downloadAudit").addEventListener("click", () => downloadJSON({ exportedAt: new Date().toISOString(), entries: state.audit }, "weekend-roster-audit-log.json"));
@@ -918,6 +1009,14 @@ async function initializeSharedMode() {
   try {
     const remote = await window.RosterBackend.loadState();
     if (remote) state = normalizeState({ ...emptyState(), ...remote });
+    try {
+      const volunteers = await window.RosterBackend.loadSpecialVolunteers(SPECIAL_WEEKEND_EVENT.key);
+      state.specialVolunteers[SPECIAL_WEEKEND_EVENT.key] = volunteers || [];
+      state.specialVolunteerError = "";
+    } catch (error) {
+      state.specialVolunteerError = "Special volunteer database setup is pending.";
+      console.error("Special volunteer load failed", error);
+    }
     displayNames = { ...displayNames, ...Object.fromEntries((remote.team || []).map((member) => [member.employee_code, member.full_name])) };
     resetShownMonthToSubmissionTarget();
     currentProfile = { role: "employee", employee_code: selectedPerson(), full_name: selectedPerson() ? displayName(selectedPerson()) : "Open team form" };
@@ -928,14 +1027,16 @@ async function initializeSharedMode() {
   }
 }
 
-function renderAll() { renderCurrentRoster(); renderCalendar(); renderRoster(); renderSwap(); renderAdmin(); }
+function renderAll() { renderCurrentRoster(); renderCalendar(); renderRoster(); renderSwap(); renderSpecialVolunteers(); renderAdmin(); }
 setOptions($("currentPersonSelect"), teamOptions(sortByDisplayName(PEOPLE)), "Select your name");
 setOptions($("personSelect"), teamOptions(sortByDisplayName(PEOPLE)), "Select your name");
+setOptions($("specialVolunteerName"), teamOptions(sortByDisplayName(PEOPLE)), "Select your name");
 resetShownMonthToSubmissionTarget();
 loadPersonDraft(); renderAll(); updateClock();
 setInterval(() => {
   updateClock();
   renderWindow();
+  renderSpecialVolunteers();
   autoExportNAProofAtCutoff();
   ensureCutoffRoster();
 }, 1000);
