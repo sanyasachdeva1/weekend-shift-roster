@@ -758,6 +758,9 @@ function setSpecialDatesForPerson(person) {
   $("specialVolunteerSat").checked = volunteered.has("2026-08-08");
   $("specialVolunteerSun").checked = volunteered.has("2026-08-09");
 }
+function hasSpecialNomination(person) {
+  return Boolean(person) && specialVolunteerRows().some((row) => row.employee_code === person);
+}
 function renderSpecialVolunteers() {
   const open = specialCollectionOpen();
   const selected = $("specialVolunteerName")?.value || "";
@@ -765,6 +768,7 @@ function renderSpecialVolunteers() {
   $("specialVolunteerStatus").textContent = state.specialVolunteerError ? "Setup Pending" : open ? "Open Until Fri 7 PM" : "Closed";
   $("specialVolunteerStatus").className = `status ${state.specialVolunteerError ? "warning" : open ? "ready" : "pending"}`;
   $("saveSpecialVolunteer").disabled = !open || !selected || Boolean(state.specialVolunteerError);
+  $("revokeSpecialVolunteer").disabled = !open || !selected || !hasSpecialNomination(selected) || Boolean(state.specialVolunteerError);
   document.querySelectorAll(".special-date-card input").forEach((input) => input.disabled = !open || !selected || Boolean(state.specialVolunteerError));
   const codeInput = $("specialVolunteerCode");
   if (codeInput) codeInput.disabled = !open || !selected || Boolean(state.specialVolunteerError);
@@ -780,37 +784,48 @@ function renderSpecialVolunteers() {
     return `<article class="special-day-list"><div class="special-day-list-head"><strong>${safe(date.label)}</strong><span>${volunteers.length} Nomination${volunteers.length === 1 ? "" : "s"}</span></div>${volunteers.length ? `<div class="special-volunteer-names">${volunteers.map((row) => `<span>${safe(displayName(row.employee_code))}</span>`).join("")}</div>` : `<p>No Nominations Yet.</p>`}</article>`;
   }).join("");
 }
-async function saveSpecialVolunteer(event) {
-  event?.preventDefault();
-  if (sharedMissing) { alert("Shared database is not configured yet. Special volunteers need shared storage."); return; }
-  if (!specialCollectionOpen()) { alert("Special volunteer collection is closed."); return; }
-  const person = $("specialVolunteerName").value;
-  const accessCode = cleanCode($("specialVolunteerCode").value);
-  const dates = selectedSpecialDates();
-  if (!person) { alert("Select your name first."); return; }
-  if (sharedMode && !accessCode) { alert("Enter your personal code before saving."); return; }
+async function saveSpecialVolunteerDates(person, accessCode, dates, messagePrefix = "Nomination") {
   if (sharedMode) {
-    try {
-      await window.RosterBackend.saveSpecialVolunteer(SPECIAL_WEEKEND_EVENT.key, person, accessCode, dates);
-      $("specialVolunteerCode").value = "";
-      $("specialVolunteerMessage").textContent = dates.length ? "Nomination saved." : "Nomination cleared.";
-      $("specialVolunteerMessage").className = "inline-message";
-      await refreshSharedState();
-      setSpecialDatesForPerson(person);
-    } catch (error) {
-      $("specialVolunteerMessage").textContent = `Save failed: ${error.message}`;
-      $("specialVolunteerMessage").className = "inline-message error";
-    }
+    await window.RosterBackend.saveSpecialVolunteer(SPECIAL_WEEKEND_EVENT.key, person, accessCode, dates);
+    $("specialVolunteerCode").value = "";
+    $("specialVolunteerMessage").textContent = dates.length ? `${messagePrefix} saved.` : `${messagePrefix} revoked.`;
+    $("specialVolunteerMessage").className = "inline-message";
+    await refreshSharedState();
+    setSpecialDatesForPerson(person);
     return;
   }
   const before = structuredClone(specialVolunteerRows());
   state.specialVolunteers[SPECIAL_WEEKEND_EVENT.key] = specialVolunteerRows().filter((row) => row.employee_code !== person);
   dates.forEach((date) => state.specialVolunteers[SPECIAL_WEEKEND_EVENT.key].push({ employee_code: person, volunteer_date: date, saved_at: new Date().toISOString() }));
-  audit("SPECIAL_VOLUNTEER_SAVED", displayName(person), `${dates.length} special volunteer date(s) saved`, before, state.specialVolunteers[SPECIAL_WEEKEND_EVENT.key]);
+  audit(dates.length ? "SPECIAL_VOLUNTEER_SAVED" : "SPECIAL_VOLUNTEER_REVOKED", displayName(person), dates.length ? `${dates.length} special volunteer date(s) saved` : "Special volunteer nomination revoked", before, state.specialVolunteers[SPECIAL_WEEKEND_EVENT.key]);
   persist();
-  $("specialVolunteerMessage").textContent = dates.length ? "Nomination saved." : "Nomination cleared.";
+  $("specialVolunteerMessage").textContent = dates.length ? `${messagePrefix} saved.` : `${messagePrefix} revoked.`;
   $("specialVolunteerMessage").className = "inline-message";
   renderSpecialVolunteers();
+}
+async function saveSpecialVolunteer(event, forcedDates = null, messagePrefix = "Nomination") {
+  event?.preventDefault();
+  if (sharedMissing) { alert("Shared database is not configured yet. Special volunteers need shared storage."); return; }
+  if (!specialCollectionOpen()) { alert("Special volunteer collection is closed."); return; }
+  const person = $("specialVolunteerName").value;
+  const accessCode = cleanCode($("specialVolunteerCode").value);
+  const dates = forcedDates ?? selectedSpecialDates();
+  if (!person) { alert("Select your name first."); return; }
+  if (sharedMode && !accessCode) { alert("Enter your personal code before saving."); return; }
+  try {
+    await saveSpecialVolunteerDates(person, accessCode, dates, messagePrefix);
+  } catch (error) {
+    $("specialVolunteerMessage").textContent = `Save failed: ${error.message}`;
+    $("specialVolunteerMessage").className = "inline-message error";
+  }
+}
+async function revokeSpecialVolunteer() {
+  const person = $("specialVolunteerName").value;
+  if (!person) { alert("Select your name first."); return; }
+  if (!hasSpecialNomination(person)) { alert("No nomination found for your name."); return; }
+  $("specialVolunteerSat").checked = false;
+  $("specialVolunteerSun").checked = false;
+  await saveSpecialVolunteer(null, [], "Nomination");
 }
 async function decideSwap(id, approved) {
   const admin = adminActor(); if (!admin) return;
@@ -958,6 +973,7 @@ $("swapFromDate").addEventListener("change", renderSwap); $("swapToDate").addEve
 document.querySelectorAll('input[name="swapType"]').forEach((input) => input.addEventListener("change", renderSwap));
 $("specialVolunteerName").addEventListener("change", () => { $("specialVolunteerCode").value = ""; $("specialVolunteerMessage").textContent = ""; setSpecialDatesForPerson($("specialVolunteerName").value); renderSpecialVolunteers(); });
 $("specialVolunteerForm").addEventListener("submit", saveSpecialVolunteer);
+$("revokeSpecialVolunteer").addEventListener("click", revokeSpecialVolunteer);
 document.querySelectorAll(".special-date-card input").forEach((input) => input.addEventListener("change", renderSpecialVolunteers));
 $("exportButton").addEventListener("click", () => downloadJSON(state, `weekend-roster-${monthKey(shownMonth)}.json`));
 $("exportNAProof").addEventListener("click", () => exportNAProof());

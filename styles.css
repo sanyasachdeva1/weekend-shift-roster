@@ -73,6 +73,7 @@ select { height: 38px; padding: 0 36px 0 12px; border: 1px solid #b9c6d7; border
 button, .button { min-height: 38px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 13px; font-weight: 750; text-decoration: none; }
 .primary { border: 1px solid var(--blue); color: white; background: var(--blue); }
 .secondary { border: 1px solid #b9c6d7; color: #254368; background: white; }
+.danger-text { border-color: #e5b2b8; color: #a62c39; background: #fffafa; }
 .workspace { display: block; margin-top: 12px; }
 .calendar-card, .team-card, .roster-card { padding: 14px 18px; overflow-x: auto; }
 .current-roster-panel { display: none; }
