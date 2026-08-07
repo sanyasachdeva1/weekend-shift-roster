@@ -371,6 +371,16 @@ function activeRoster() {
 function formatRosterDate(key) {
   return parseDate(key).toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" });
 }
+function specialVolunteersVisible() {
+  return appNow() >= SPECIAL_WEEKEND_EVENT.cutoff;
+}
+function specialVolunteerCodesForDate(key) {
+  if (!specialVolunteersVisible()) return [];
+  return specialVolunteerRows()
+    .filter((row) => row.volunteer_date === key)
+    .map((row) => row.employee_code)
+    .filter((code, index, codes) => code && codes.indexOf(code) === index);
+}
 function renderCurrentRoster() {
   const roster = activeRoster();
   const month = activeRosterMonthKey();
@@ -385,7 +395,7 @@ function renderCurrentRoster() {
     $("currentRosterGrid").innerHTML = `<div class="roster-empty-note">Roster Pending.</div>`;
     return;
   }
-  const myRows = selected ? roster.assignments.filter((row) => row.assigned.includes(selected)) : [];
+  const myRows = selected ? roster.assignments.filter((row) => row.assigned.includes(selected) || specialVolunteerCodesForDate(row.date).includes(selected)) : [];
   $("currentMyShiftCard").className = `my-shifts-card card ${selected ? "" : "empty"}`;
   $("currentMyShiftCard").innerHTML = selected
     ? `<div class="my-shifts-header"><strong>${safe(displayName(selected))}</strong><span class="summary-pill">${myRows.length} Shift${myRows.length === 1 ? "" : "s"}</span></div><div class="shift-pill-list">${myRows.length ? myRows.map((row) => `<span class="shift-pill">${safe(formatRosterDate(row.date))}</span>`).join("") : `<span class="shift-pill">No Shifts In This Roster</span>`}</div>`
@@ -393,12 +403,14 @@ function renderCurrentRoster() {
   $("currentRosterGrid").innerHTML = roster.assignments.map((row) => {
     const basic = row.assigned.filter((code) => !isSignatureAssignment(code));
     const signature = row.assigned.filter((code) => isSignatureAssignment(code));
-    const highlighted = selected && row.assigned.includes(selected);
+    const specialVolunteers = specialVolunteerCodesForDate(row.date);
+    const highlighted = selected && (row.assigned.includes(selected) || specialVolunteers.includes(selected));
     const chips = (codes, sig = false) => codes.map((code) => `<span class="roster-name-chip ${sig ? "signature" : ""} ${code === selected ? "mine" : ""}">${safe(displayName(code))}</span>`).join("");
+    const specialHtml = specialVolunteers.length ? `<div class="roster-group special-roster-group"><div class="roster-group-label">Special Volunteers</div><div class="roster-name-list">${chips(specialVolunteers, true)}</div></div>` : "";
     const date = parseDate(row.date);
     const shortDay = date.getDay() === 6 ? "Sat" : "Sun";
     const shortDate = date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-    return `<article class="roster-day-card ${highlighted ? "highlighted" : ""}"><div class="roster-day-head"><strong>${safe(shortDate)}</strong><span>${shortDay}</span></div><div class="roster-group"><div class="roster-group-label">Basic Engineers</div><div class="roster-name-list">${chips(basic)}</div></div><div class="roster-group"><div class="roster-group-label">Signature</div><div class="roster-name-list">${chips(signature, true)}</div></div></article>`;
+    return `<article class="roster-day-card ${highlighted ? "highlighted" : ""}"><div class="roster-day-head"><strong>${safe(shortDate)}</strong><span>${shortDay}</span></div><div class="roster-group"><div class="roster-group-label">Basic Engineers</div><div class="roster-name-list">${chips(basic)}</div></div><div class="roster-group"><div class="roster-group-label">Signature</div><div class="roster-name-list">${chips(signature, true)}</div></div>${specialHtml}</article>`;
   }).join("");
 }
 function renderCalendar() {
